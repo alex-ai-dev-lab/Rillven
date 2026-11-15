@@ -1,6 +1,6 @@
 # Releases 镜像分发
 
-Rillven 仅在 [GitHub Releases](https://github.com/alex-ai-dev-lab/rillven/releases)
+Rillven 仅在 [GitHub Releases](https://github.com/alex-ai-dev-lab/Rillven/releases)
 发布构建产物。主分支、产品标签和手动构建都先通过统一检查，不再向 GHCR 发布。
 完整的首次安装命令见 [README](../README.md#快速部署)。
 

@@ -14,7 +14,7 @@ Rillven（原 RenewAPI）是基于 [QuantumNous/new-api](https://github.com/Quan
 ## 快速部署
 
 以下用于 **Linux 首次安装**，需要 Docker Compose v2、`curl`、`openssl` 和
-`sha256sum`。镜像只通过 [GitHub Releases](https://github.com/alex-ai-dev-lab/rillven/releases)
+`sha256sum`。镜像只通过 [GitHub Releases](https://github.com/alex-ai-dev-lab/Rillven/releases)
 分发，提供 amd64、arm64 归档，不再发布到 GHCR。源码构建在列表中标为预发行版。
 
 先选定一个 Release，将下方两个占位值替换为其实际标签和镜像附件名。
@@ -27,7 +27,7 @@ mkdir rillven
 cd rillven
 RELEASE_TAG='替换为所选 Release 的标签'
 IMAGE_ARCHIVE='替换为该 Release 中对应架构的镜像归档文件名'
-BASE_URL="https://github.com/alex-ai-dev-lab/rillven/releases/download/$RELEASE_TAG"
+BASE_URL="https://github.com/alex-ai-dev-lab/Rillven/releases/download/$RELEASE_TAG"
 
 for file in "$IMAGE_ARCHIVE" CHECKSUMS.txt compose.yaml default.env.example; do
   curl -fLO "$BASE_URL/$file"

@@ -2,9 +2,9 @@
 
 更新日期：2026-11-15。源码状态以 Git 提交和工作树改动为准，生产镜像与验收范围以对应部署归档为准。
 
-## Rillven 改名（源码已验证，生产未部署）
+## Rillven 改名（已部署）
 
-项目更名为 Rillven，GitHub 仓库为 [alex-ai-dev-lab/rillven](https://github.com/alex-ai-dev-lab/rillven)。
+项目更名为 Rillven，GitHub 仓库为 [alex-ai-dev-lab/Rillven](https://github.com/alex-ai-dev-lab/Rillven)（R 大写）。
 仓库 ID `1234291482`、默认分支 main 及改名前全部远端 refs 保持不变，旧地址 301 跳转。
 界面、CLI、当前文档和后续构建命名已更新；旧配置别名、密文/会话标识、历史发布、
 原作者署名和自定义站点名保留。变更与前一轮修复分别在 main 提交。
@@ -12,14 +12,14 @@
 Go 全仓测试/vet/build、密钥兼容 race、前端 240 测试/类型/语义与改动文件 lint/格式/
 版权检查/冻结锁文件安装/构建、发布元数据及 actionlint、两套 Compose 三种配置组合通过。
 Playwright 十组检查覆盖旧缓存/自定义名称、零定价保存、失败重试、多视口及身份/恢复配置真保存。
-发现并修复页面标题的独立旧缓存读取遗漏；生产未部署。细节见 [ADR-024](decisions/024-rillven-rename.md)
+发现并修复页面标题的独立旧缓存读取遗漏；已通过 Actions 源码构建上线。细节见 [ADR-024](decisions/024-rillven-rename.md)
 和[改名归档](../tasks/archive/2026-11-rillven-rename.md)。
 
-## 定价、工具兼容及账号保护（源码已实现，未部署）
+## 定价、工具兼容及账号保护（已部署，新增能力按渠道配置启用）
 
-在 `repair-20261017` 的 main 工作树完成统一定价保存、Responses 工具原生回退、渠道/凭据独立身份、严格出口、加密托管上下文及 HTTP/SSE/WS 恢复、atomic_turn 与现有资金账本协调、OAuth grant journal 和可选账户 FIFO/额度冷却。已提交 main：`75717ba`；生产未部署。
+在 `repair-20261017` 的 main 工作树完成统一定价保存、Responses 工具原生回退、渠道/凭据独立身份、严格出口、加密托管上下文及 HTTP/SSE/WS 恢复、atomic_turn 与现有资金账本协调、OAuth grant journal 和可选账户 FIFO/额度冷却。实现提交 `75717ba`，生产源码 `cb40c8f`，见本次部署归档。
 
-全仓 Go 测试/vet/build、受影响路径 race、前端 234 项测试/类型/改动文件 lint/构建、四个外部数据库版本、30 组独立进程崩溃恢复及 Playwright 真保存通过。功能默认灰度启用，需要独立状态 keyring；关闭新会话写入后须保留旧逻辑 ID 的读取能力。
+全仓 Go 测试/vet/build、受影响路径 race、前端 234 项测试/类型/改动文件 lint/构建、四个外部数据库版本、30 组独立进程崩溃恢复及 Playwright 真保存通过。生产已配置独立状态 keyring，渠道原有配置保持；新增能力仍按渠道灰度启用。关闭新会话写入后须保留旧逻辑 ID 的读取能力。
 
 实际范围、默认限制、启用/回退、验证证据及未覆盖的目标重压缩/私有资源/厂商 quota/TLS 试点见[实施验收](audits/2026-11-managed-recovery-implementation.md)、[ADR-023](decisions/023-managed-conversation-recovery.md)和[任务记录](../tasks/archive/2026-11-pricing-tools-upstream.md)。不保证任意历史或已输出的实时流都可透明迁移，也不将本地验证当成生产防封禁证明。
 
@@ -148,14 +148,22 @@ UI 第二轮复查修复已随本版部署，覆盖成功率对比度、复制�
 
 ## 当前线上部署
 
-2026-10-28 已上线 v1.5.1，站点 `router.108848.xyz:1443`，容器 `new-api-v1-5-1`，
-Caddy 上游 `127.0.0.1:3027`，镜像 `renewapi:1.5.1`。源码
-`b268e67984e0707cfde3d260ba6724c93a03eee7`，环境、会话密钥、挂载及 off 计费模式保留；
-SQLite、101 个渠道、86 项配置及 121 条全局端点规则校验通过，healthy、重启 0。
-保留 ADR-019 长流配置，公网 Responses 127.87 秒、跨切换长流 126.50 秒完整结束并
-成功计费。下载包、本次备份、临时脚本及旧容器已清理；旧 v1.5.0 连接归零后停止
-超时，由 Docker 终止（137，非 OOM）。旧浏览器静态资源保留，清理后数据库、入口及
-外网资源复验通过。详见[部署归档](../tasks/archive/2026-10-deploy-v1.5.1.md)。
+2026-11-15 已上线 Rillven 源码构建
+[`rillven-build-cb40c8ff5bda-43690829405`](https://github.com/alex-ai-dev-lab/Rillven/releases/tag/rillven-build-cb40c8ff5bda-43690829405)，
+源码 `cb40c8ff5bda8efcffffe62d053901d2ed51b28f`。产品版本仍为 v1.5.1，未创建新正式版本。
+站点 `router.108848.xyz:1443`，容器/Compose project `rillven-cb40c8ff5bda`，
+Caddy 上游 `127.0.0.1:3028`，镜像 `rillven:sha-cb40c8ff5bda`，healthy、重启 0。
+原环境、会话密钥、数据挂载、off 计费模式和自定义名称 Interface Zero 保留；
+新增永久 `state-keys.env`，未批量启用渠道身份或托管会话。
+
+完整 Actions、代理下载/摘要校验、SQLite 副本迁移及在线加表通过；47 张原有表
+结构/业务数据不变，新增 10 张空表。候选/公网共 14 项协议验收通过；候选 80.24 秒、
+公网 87.43 秒、跨切换旧请求 81.12 秒均收到终态并计费。两次上游请求错误零扣费，
+单独重试通过；全程 1322 次入口状态监测、切换专项 15 次探测无失败。
+112 个渠道的设置、86 项配置中的关键业务选项、旧页面与管理员会话延续已核验。
+旧容器连接排空后 330.38 秒正常退出（0）；本次备份、下载包、临时文件和旧容器
+已清理，约 1.06 GB。永久 keyring、运行 Compose、旧静态资源和历史记录保留；
+清理后数据库、容器及公网新旧资源复验通过。详见[部署归档](../tasks/archive/2026-11-deploy-rillven.md)。
 
 ## 线上产品复核
 

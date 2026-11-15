@@ -1,6 +1,6 @@
 # 部署
 
-镜像仅通过 [GitHub Releases](https://github.com/alex-ai-dev-lab/rillven/releases)
+镜像仅通过 [GitHub Releases](https://github.com/alex-ai-dev-lab/Rillven/releases)
 分发。先按 [Releases 分发说明](release-distribution.md) 下载、校验并在服务器
 运行 `docker load`，再使用该 Release 对应的 `RILLVEN_IMAGE`。
 

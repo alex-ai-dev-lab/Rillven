@@ -12,7 +12,7 @@ D:\Code\renewapi\Token\server-access.env
 ```text
 GITHUB_USERNAME=
 GITHUB_TOKEN=
-GITHUB_REPO=alex-ai-dev-lab/rillven
+GITHUB_REPO=alex-ai-dev-lab/Rillven
 GHCR_REGISTRY=ghcr.io
 GHCR_OWNER=
 GHCR_IMAGE=renewapi
