@@ -1,9 +1,9 @@
-name: 检查并发布 RenewAPI Releases
+name: 检查并发布 Rillven Releases
 
 on:
   push:
     branches: [main]
-    tags: ['renewapi-v*']
+    tags: ['rillven-v*']
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -15,7 +15,7 @@ on:
         required: false
         type: string
       release_tag:
-        description: 可选源码包标签，必须使用 renewapi-source- 或 renewapi-build- 前缀
+        description: 可选源码包标签，必须使用 rillven-source- 或 rillven-build- 前缀
         required: false
         type: string
       base_sha:
@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: renewapi-release-${{ github.ref }}
+  group: rillven-release-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -82,7 +82,7 @@ jobs:
         run: test "$GITHUB_SHA" = "$EXPECTED_SHA"
 
       - name: Verify product tag and VERSION
-        if: startsWith(github.ref, 'refs/tags/renewapi-v')
+        if: startsWith(github.ref, 'refs/tags/rillven-v')
         run: bash scripts/validate-release.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
 
       - uses: actions/setup-go@v5
@@ -148,7 +148,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          package_file="$RUNNER_TEMP/renewapi-go-package-dirs"
+          package_file="$RUNNER_TEMP/rillven-go-package-dirs"
           while IFS= read -r -d '' file; do
             dirname "$file"
           done < <(git ls-files -z -- '*.go') \
@@ -202,7 +202,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          package_file="$RUNNER_TEMP/renewapi-go-package-dirs"
+          package_file="$RUNNER_TEMP/rillven-go-package-dirs"
           test -s "$package_file"
           mapfile -t go_packages < "$package_file"
           printf 'Verifying %s tracked Go package directories.\n' "${#go_packages[@]}"
@@ -257,8 +257,8 @@ jobs:
             BUILD_DATE=${{ needs.release-info.outputs.created }}
             BUILD_CHANNEL=${{ needs.release-info.outputs.build_channel }}
             UPSTREAM_REF=${{ env.UPSTREAM_REF }}
-          cache-from: type=gha,scope=renewapi-release-${{ matrix.arch }}
-          cache-to: type=gha,scope=renewapi-release-${{ matrix.arch }},mode=max
+          cache-from: type=gha,scope=rillven-release-${{ matrix.arch }}
+          cache-to: type=gha,scope=rillven-release-${{ matrix.arch }},mode=max
           # Docker 离线归档不支持内嵌 OCI 证明，另附镜像元数据和完整校验和。
           provenance: false
           sbom: false
@@ -273,13 +273,13 @@ jobs:
             -e SESSION_SECRET=release-image-validation-only \
             -e SQLITE_PATH=/tmp/release-validation.db -e NODE_TYPE=slave \
             -e UPDATE_TASK=false -e OFFICIAL_PRICE_SYNC_ENABLED=false \
-            "$IMAGE" -ec '/app/new-api migrate --up && /app/new-api migrate --check'
+            "$IMAGE" -ec '/app/rillven migrate --up && /app/rillven migrate --check && test /app/rillven -ef /app/new-api'
           images=("$IMAGE")
           if [[ "$BUILD_CHANNEL" == 'edge' ]]; then
-            docker tag "$IMAGE" renewapi:edge
-            images+=(renewapi:edge)
+            docker tag "$IMAGE" rillven:edge
+            images+=(rillven:edge)
           fi
-          docker save "${images[@]}" | gzip -n -9 > "release-assets/renewapi-$IMAGE_TAG-linux-$ARCH.tar.gz"
+          docker save "${images[@]}" | gzip -n -9 > "release-assets/rillven-$IMAGE_TAG-linux-$ARCH.tar.gz"
       - name: 暂存已验证镜像供统一发布
         uses: actions/upload-artifact@v4
         with:
@@ -333,7 +333,7 @@ jobs:
           set -euo pipefail
           cp compose.yaml docker-compose.yml release-assets/
           cp .env.example release-assets/default.env.example
-          sed -i "s|^# NEWAPI_IMAGE=.*|NEWAPI_IMAGE=$IMAGE|" release-assets/default.env.example
+          sed -i "s|^# RILLVEN_IMAGE=.*|RILLVEN_IMAGE=$IMAGE|" release-assets/default.env.example
           tar -czf release-assets/qa-secondary-surfaces.tar.gz -C qa-evidence/secondary-surfaces .
           tar -czf release-assets/qa-settings-wave2.tar.gz -C qa-evidence/settings-wave2 .
           tar -czf release-assets/qa-databases.tar.gz -C qa-evidence/databases .
@@ -348,10 +348,10 @@ jobs:
           检查记录：https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
 
           按主机架构下载 linux-amd64 或 linux-arm64 镜像归档。下载 CHECKSUMS.txt 后运行 sha256sum --ignore-missing -c CHECKSUMS.txt，再用 docker load -i 对应归档 导入镜像。
-          首次配置可复制 default.env.example 为 .env 并设置 SESSION_SECRET，再使用随附 Compose 文件。已有安装应保留原数据库和配置，单独更新 NEWAPI_IMAGE。
+          首次配置可复制 default.env.example 为 .env 并设置 SESSION_SECRET，再使用随附 Compose 文件。已有安装应保留原数据库和配置，单独更新 RILLVEN_IMAGE。
           镜像仅通过 Releases 分发，不需要登录或拉取 GHCR。两个 QA 包和数据库证据包保存本次检查结果。
           EOF
-          checksums="$RUNNER_TEMP/renewapi-release-checksums.txt"
+          checksums="$RUNNER_TEMP/rillven-release-checksums.txt"
           (cd release-assets && find . -maxdepth 1 -type f ! -name CHECKSUMS.txt -print0 | sort -z | xargs -0 sha256sum) > "$checksums"
           cp "$checksums" release-assets/CHECKSUMS.txt
       - name: 上传草稿、下载校验后正式发布

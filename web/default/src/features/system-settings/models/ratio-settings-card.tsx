@@ -466,7 +466,7 @@ export function RatioSettingsCard({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-model-pricing.json'
+    link.download = 'rillven-model-pricing.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('Model pricing exported'))

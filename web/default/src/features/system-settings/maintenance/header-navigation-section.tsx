@@ -20,8 +20,8 @@ import { useEffect, useMemo, useState } from 'react'
 import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowUp, Download, Upload } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -42,6 +42,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import {
   SettingsControlChildren,
   SettingsForm,
@@ -54,13 +55,12 @@ import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 import {
   HEADER_NAV_DEFAULT,
-  HEADER_NAV_ORDER_DEFAULT,
+  type HEADER_NAV_ORDER_DEFAULT,
   type HeaderNavModulesConfig,
   normalizeHeaderNavOrder,
   parseHeaderNavModules,
   serializeHeaderNavModules,
 } from './config'
-import { Textarea } from '@/components/ui/textarea'
 
 const headerNavSchema = z.object({
   home: z.boolean(),
@@ -152,7 +152,9 @@ export function HeaderNavigationSection({
     setHeaderOrder(normalizeHeaderNavOrder(config.order))
   }, [config.order, formDefaults, form])
 
-  const buildPayload = (values: HeaderNavFormValues): HeaderNavModulesConfig => {
+  const buildPayload = (
+    values: HeaderNavFormValues
+  ): HeaderNavModulesConfig => {
     return {
       ...config,
       order: normalizeHeaderNavOrder(headerOrder),
@@ -225,7 +227,7 @@ export function HeaderNavigationSection({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-header-navigation.json'
+    link.download = 'rillven-header-navigation.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('Header navigation exported'))
@@ -243,7 +245,8 @@ export function HeaderNavigationSection({
         raw.HeaderNavModules ??
         Object.fromEntries(
           Object.entries(raw).filter(
-            ([key]) => key !== 'docs_link' && key !== 'general_setting.docs_link'
+            ([key]) =>
+              key !== 'docs_link' && key !== 'general_setting.docs_link'
           )
         )
       const importedConfig =
@@ -264,7 +267,10 @@ export function HeaderNavigationSection({
     }
   }
 
-  const moveHeaderModule = (moduleKey: HeaderNavOrderKey, direction: -1 | 1) => {
+  const moveHeaderModule = (
+    moduleKey: HeaderNavOrderKey,
+    direction: -1 | 1
+  ) => {
     setHeaderOrder((current) => {
       const next = normalizeHeaderNavOrder(current)
       const currentIndex = next.indexOf(moduleKey)
@@ -362,7 +368,9 @@ export function HeaderNavigationSection({
             <div>
               <p className='text-sm font-medium'>{t('Import / export')}</p>
               <p className='text-muted-foreground mt-1 text-sm'>
-                {t('Backup or restore top navigation modules, order, and Docs URL as JSON.')}
+                {t(
+                  'Backup or restore top navigation modules, order, and Docs URL as JSON.'
+                )}
               </p>
             </div>
             <div className='flex shrink-0 gap-2'>
@@ -370,7 +378,11 @@ export function HeaderNavigationSection({
                 <Download className='mr-2 h-4 w-4' />
                 {t('Export JSON')}
               </Button>
-              <Button type='button' variant='outline' onClick={openImportDialog}>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={openImportDialog}
+              >
                 <Upload className='mr-2 h-4 w-4' />
                 {t('Import JSON')}
               </Button>
@@ -427,22 +439,22 @@ export function HeaderNavigationSection({
             <div>
               <p className='text-sm font-medium'>{t('Navigation order')}</p>
               <p className='text-muted-foreground mt-1 text-sm'>
-                {t('Controls the left-to-right order of enabled top navigation modules.')}
+                {t(
+                  'Controls the left-to-right order of enabled top navigation modules.'
+                )}
               </p>
             </div>
             <div className='grid gap-2'>
               {headerOrder.map((moduleKey, index) => (
                 <div
                   key={moduleKey}
-                  className='flex items-center justify-between gap-3 rounded-md border bg-muted/20 px-3 py-2'
+                  className='bg-muted/20 flex items-center justify-between gap-3 rounded-md border px-3 py-2'
                 >
                   <div className='min-w-0'>
                     <p className='text-sm font-medium'>
                       {index + 1}. {orderLabels[moduleKey] ?? moduleKey}
                     </p>
-                    <p className='text-muted-foreground text-xs'>
-                      {moduleKey}
-                    </p>
+                    <p className='text-muted-foreground text-xs'>{moduleKey}</p>
                   </div>
                   <div className='flex shrink-0 gap-1'>
                     <Button

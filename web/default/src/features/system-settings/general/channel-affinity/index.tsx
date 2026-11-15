@@ -330,7 +330,7 @@ function ChannelAffinityEditor(props: Props) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-channel-affinity.json'
+    link.download = 'rillven-channel-affinity.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('Channel affinity exported'))

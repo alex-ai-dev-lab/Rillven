@@ -344,7 +344,7 @@ export function UpstreamErrorRulesSection() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-upstream-error-rules.json'
+    link.download = 'rillven-upstream-error-rules.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('Upstream error rules downloaded and copied when possible'))

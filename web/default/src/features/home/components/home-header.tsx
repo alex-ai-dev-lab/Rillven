@@ -46,7 +46,7 @@ export function HomeHeader() {
         >
           <a
             className='snowapi-deeix-icon-link snowapi-deeix-github-link'
-            href='https://github.com/alex-ai-dev-lab/renewapi'
+            href='https://github.com/alex-ai-dev-lab/rillven'
             target='_blank'
             rel='noreferrer'
             aria-label='GitHub'

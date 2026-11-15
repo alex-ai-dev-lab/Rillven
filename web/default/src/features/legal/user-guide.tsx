@@ -44,10 +44,10 @@ export function UserGuide() {
       title: t('Request examples'),
       markdown: [
         t(
-          'Use environment variables for secrets. Replace MODEL_ID with an available model. Set RENEWAPI_BASE_URL to the configured OpenAI-compatible address including /v1. These examples send one real request and may incur a charge.'
+          'Use environment variables for secrets. Replace MODEL_ID with an available model. Set RILLVEN_BASE_URL to the configured OpenAI-compatible address including /v1. These examples send one real request and may incur a charge.'
         ),
-        '```bash\ncurl "$RENEWAPI_BASE_URL/chat/completions" \\\n  -H "Authorization: Bearer $RENEWAPI_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model":"MODEL_ID","messages":[{"role":"user","content":"Hello"}],"stream":false}\'\n```',
-        '```python\nimport os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    api_key=os.environ["RENEWAPI_API_KEY"],\n    base_url=os.environ["RENEWAPI_BASE_URL"],\n)\nreply = client.chat.completions.create(\n    model="MODEL_ID",\n    messages=[{"role": "user", "content": "Hello"}],\n)\nprint(reply.choices[0].message.content)\n```',
+        '```bash\ncurl "$RILLVEN_BASE_URL/chat/completions" \\\n  -H "Authorization: Bearer $RILLVEN_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"model":"MODEL_ID","messages":[{"role":"user","content":"Hello"}],"stream":false}\'\n```',
+        '```python\nimport os\nfrom openai import OpenAI\n\nclient = OpenAI(\n    api_key=os.environ["RILLVEN_API_KEY"],\n    base_url=os.environ["RILLVEN_BASE_URL"],\n)\nreply = client.chat.completions.create(\n    model="MODEL_ID",\n    messages=[{"role": "user", "content": "Hello"}],\n)\nprint(reply.choices[0].message.content)\n```',
         t(
           'For streaming, set stream to true and consume SSE events until completion. A browser address bar cannot send this authenticated POST request. In PowerShell use curl.exe; adapt shell quoting and environment-variable syntax. Install the OpenAI Python package before using the Python example.'
         ),

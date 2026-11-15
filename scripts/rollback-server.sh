@@ -26,7 +26,7 @@ if [ "${SSH_AUTH_METHOD:-key}" = "password" ]; then
 elif [ -n "${SSH_KEY_PATH:-}" ]; then
   ssh_args+=(-i "$SSH_KEY_PATH")
 fi
-remote="set -eu; cd '$SERVER_DEPLOY_DIR'; previous=\$(cat backups/previous-image.txt); NEWAPI_IMAGE=\"\$previous\" docker compose -f '$SERVER_COMPOSE_FILE' up -d --no-deps '$SERVER_SERVICE_NAME'; docker compose -f '$SERVER_COMPOSE_FILE' ps '$SERVER_SERVICE_NAME'"
+remote="set -eu; cd '$SERVER_DEPLOY_DIR'; previous=\$(cat backups/previous-image.txt); RILLVEN_IMAGE=\"\$previous\" NEWAPI_IMAGE=\"\$previous\" docker compose -f '$SERVER_COMPOSE_FILE' up -d --no-deps '$SERVER_SERVICE_NAME'; docker compose -f '$SERVER_COMPOSE_FILE' ps '$SERVER_SERVICE_NAME'"
 [ "$dry_run" = "true" ] && { echo "DRY-RUN rollback prepared for $SERVER_USER@$SERVER_HOST"; exit 0; }
 if [ "${SSH_AUTH_METHOD:-key}" = "password" ]; then
   sshpass -e ssh "${ssh_args[@]}" "$SERVER_USER@$SERVER_HOST" "$remote"

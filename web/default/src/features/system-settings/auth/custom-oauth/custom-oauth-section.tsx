@@ -141,7 +141,7 @@ export function CustomOAuthSection() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-custom-oauth-providers.json'
+    link.download = 'rillven-custom-oauth-providers.json'
     link.click()
     URL.revokeObjectURL(url)
 

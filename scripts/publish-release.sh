@@ -19,7 +19,7 @@ existing="$(jq --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)][0] 
 references="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$RELEASE_TAG")"
 reference="$(jq --arg ref "refs/tags/$RELEASE_TAG" '[.[] | select(.ref == $ref)][0] // null' <<< "$references")"
 if [[ "$reference" == 'null' ]]; then
-  [[ "$RELEASE_TAG" == renewapi-build-* || "$RELEASE_TAG" == renewapi-source-* ]]
+  [[ "$RELEASE_TAG" == rillven-build-* || "$RELEASE_TAG" == rillven-source-* ]]
   reference="$(gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$RELEASE_TAG" -f sha="$GITHUB_SHA")"
 fi
 object_type="$(jq -r '.object.type' <<< "$reference")"
@@ -41,7 +41,7 @@ fi
 
 verify_download() {
   local destination
-  destination="$(mktemp -d "$RUNNER_TEMP/renewapi-release-verify.XXXXXX")"
+  destination="$(mktemp -d "$RUNNER_TEMP/rillven-release-verify.XXXXXX")"
   gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir "$destination"
   test -s "$destination/CHECKSUMS.txt"
   test "$(find "$destination" -maxdepth 1 -name '*-linux-*.tar.gz' | wc -l)" -eq 2

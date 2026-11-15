@@ -172,7 +172,7 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-rate-limiting.json'
+    link.download = 'rillven-rate-limiting.json'
     link.click()
     URL.revokeObjectURL(url)
 

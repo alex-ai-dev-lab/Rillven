@@ -1,17 +1,28 @@
 services:
   new-api:
-    image: ${NEWAPI_IMAGE:-renewapi:edge}
+    image: ${RILLVEN_IMAGE:-${NEWAPI_IMAGE:-rillven:edge}}
     pull_policy: never
     container_name: ${COMPOSE_PROJECT_NAME:-newapi}-new-api
     restart: unless-stopped
     init: true
     ports:
-      - "${NEWAPI_HOST_PORT:-3002}:${PORT:-3000}"
+      - "${RILLVEN_HOST_PORT:-${NEWAPI_HOST_PORT:-3002}}:${PORT:-3000}"
     volumes:
-      - ${NEWAPI_DATA_DIR:-./data}:/data
-      - ${NEWAPI_LOG_DIR:-./logs}:/app/logs
-      - ${NEWAPI_PUBLIC_DIR:-./public}:/app/public
+      - ${RILLVEN_DATA_DIR:-${NEWAPI_DATA_DIR:-./data}}:/data
+      - ${RILLVEN_LOG_DIR:-${NEWAPI_LOG_DIR:-./logs}}:/app/logs
+      - ${RILLVEN_PUBLIC_DIR:-${NEWAPI_PUBLIC_DIR:-./public}}:/app/public
     environment:
+      # Keep the two keyring prefixes separate; the application selects a complete pair.
+      RILLVEN_STATE_KEYS: ${RILLVEN_STATE_KEYS:-}
+      RENEWAPI_STATE_KEYS: ${RENEWAPI_STATE_KEYS:-}
+      RILLVEN_STATE_ACTIVE_KEY: ${RILLVEN_STATE_ACTIVE_KEY:-}
+      RENEWAPI_STATE_ACTIVE_KEY: ${RENEWAPI_STATE_ACTIVE_KEY:-}
+      RILLVEN_UPSTREAM_CONCURRENCY: ${RILLVEN_UPSTREAM_CONCURRENCY:-}
+      RENEWAPI_UPSTREAM_CONCURRENCY: ${RENEWAPI_UPSTREAM_CONCURRENCY:-}
+      RILLVEN_UPSTREAM_QUEUE: ${RILLVEN_UPSTREAM_QUEUE:-}
+      RENEWAPI_UPSTREAM_QUEUE: ${RENEWAPI_UPSTREAM_QUEUE:-}
+      RILLVEN_UPSTREAM_WAIT_MS: ${RILLVEN_UPSTREAM_WAIT_MS:-}
+      RENEWAPI_UPSTREAM_WAIT_MS: ${RENEWAPI_UPSTREAM_WAIT_MS:-}
       TZ: ${TZ:-Asia/Shanghai}
       PUID: ${PUID:-1000}
       PGID: ${PGID:-1000}

@@ -11,15 +11,15 @@ tag="${1:-${GITHUB_REF_NAME:-}}"
 expected_sha="${2:-${GITHUB_SHA:-}}"
 
 if [[ -z "$tag" ]]; then
-  echo "product release tag is required (for example: renewapi-v1.0.0-rc.1)" >&2
+  echo "product release tag is required (for example: rillven-v1.0.0-rc.1)" >&2
   exit 2
 fi
-if [[ ! "$tag" =~ ^renewapi-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+if [[ ! "$tag" =~ ^rillven-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
   echo "invalid product release tag: $tag" >&2
   exit 2
 fi
 
-product_version="${tag#renewapi-}"
+product_version="${tag#rillven-}"
 version="$(tr -d '\r\n' < VERSION)"
 if [[ "$version" != "$product_version" ]]; then
   echo "VERSION ($version) does not match product tag version ($product_version)" >&2

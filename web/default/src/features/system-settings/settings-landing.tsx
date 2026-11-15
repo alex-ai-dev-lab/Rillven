@@ -62,7 +62,7 @@ const LANDING_DEFAULTS: LandingOptions = {
   'anti_poison_setting.enabled': false,
   'anti_poison_setting.signed_header_audit_enabled': false,
   ServerAddress: '',
-  SystemName: 'RenewAPI',
+  SystemName: 'Rillven',
   QuotaForNewUser: 0,
 }
 

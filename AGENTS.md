@@ -1,8 +1,8 @@
-# AGENTS.md — RenewAPI Engineering Rules
+# AGENTS.md — Rillven Engineering Rules
 
 ## Overview
 
-RenewAPI is an independently maintained downstream source fork of
+Rillven is an independently maintained downstream source fork of
 [QuantumNous/new-api](https://github.com/QuantumNous/new-api). It is an AI API
 gateway/proxy built with Go that aggregates 40+ upstream AI providers behind a
 unified API, with user management, billing, rate limiting, and an admin
@@ -10,7 +10,7 @@ dashboard.
 
 NewAPI is the principal upstream/reference source, not a repository to merge
 or rebase blindly. Sub2API, CPA, and other external projects are reference
-sources only. Preserve RenewAPI compatibility, security controls, architecture,
+sources only. Preserve Rillven compatibility, security controls, architecture,
 and product identity when adapting external behavior.
 
 ## Sources of truth
@@ -105,23 +105,23 @@ changelog when those facts changed.
 
 ### Rule 0.1: Version and release identity
 
-`VERSION` is the pure RenewAPI product version only. RenewAPI product Git tags
-use the `renewapi-` prefix (for example, `renewapi-v1.0.0-rc.1`) so raw
+`VERSION` is the pure Rillven product version only. Rillven product Git tags
+use the `rillven-` prefix (for example, `rillven-v1.0.0-rc.1`) so raw
 `v*` upstream NewAPI tags remain in the shared Git namespace untouched. Keep
 product version, upstream baseline, Git commit, build time, and build channel
 separate.
 
 镜像仅通过 GitHub Releases 分发，不再登录或推送 GHCR。主分支和手动构建
 必须通过统一的后端、前端、数据库及浏览器检查，再发布对应 SHA 的离线镜像。
-源码构建使用 `renewapi-build-<sha>-<run>` 预发行标签；产品标签仍使用
-`renewapi-v<version>`，只有正式产品版本可以成为最新正式发布。Git tags
+源码构建使用 `rillven-build-<sha>-<run>` 预发行标签；产品标签仍使用
+`rillven-v<version>`，只有正式产品版本可以成为最新正式发布。Git tags
 不可重指向，已发布附件不可覆盖；历史 Git tags、Releases、镜像包和 Actions
-记录只有在用户明确授权对应清理范围时才能删除。详见 ADR-010、ADR-013。
+记录只有在用户明确授权对应清理范围时才能删除。历史 `renewapi-*` 标签及附件保持原名。改名兼容边界见 ADR-024；发布约束见 ADR-010、ADR-013。
 
 ### Rule 0.2: Upstream synchronization
 
 Do not merge or rebase the unrelated NewAPI history. For each candidate change,
-inspect intent, compare the RenewAPI implementation, port or adapt only the
+inspect intent, compare the Rillven implementation, port or adapt only the
 needed behavior, test it, and record the disposition in `UPSTREAM_PORTS.md`.
 
 ### Rule 0.3: Durable decisions and task scope

@@ -294,7 +294,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-system-information.json'
+    link.download = 'rillven-system-information.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('System information exported'))
@@ -373,7 +373,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   <FormItem>
                     <FormLabel>{t('System Name')}</FormLabel>
                     <FormControl>
-                      <Input placeholder={t('New API')} {...field} />
+                      <Input placeholder='Rillven' {...field} />
                     </FormControl>
                     <FormDescription>
                       {t('The name displayed across the application')}
@@ -479,7 +479,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                       <FormLabel>{t('Home Page Content')}</FormLabel>
                       <FormControl>
                         <Textarea
-                          placeholder={t('Welcome to our New API...')}
+                          placeholder={t('Welcome to our Rillven...')}
                           rows={6}
                           {...field}
                         />

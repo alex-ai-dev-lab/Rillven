@@ -21,7 +21,14 @@ For commercial licensing, please contact support@quantumnous.com
  */
 
 // System Configuration Defaults
-export const DEFAULT_SYSTEM_NAME = 'RenewAPI'
+export const DEFAULT_SYSTEM_NAME = 'Rillven'
+
+export function normalizeSystemName(name?: string): string {
+  if (!name || ['New API', 'NewAPI', 'RenewAPI'].includes(name)) {
+    return DEFAULT_SYSTEM_NAME
+  }
+  return name
+}
 export const DEFAULT_LOGO = '/logo.png'
 
 // LocalStorage Keys

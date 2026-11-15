@@ -163,7 +163,7 @@ export function ChatSettingsSection({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-chat-presets.json'
+    link.download = 'rillven-chat-presets.json'
     link.click()
     URL.revokeObjectURL(url)
 
@@ -248,7 +248,7 @@ export function ChatSettingsSection({
             </Button>
           </SettingsPageActionsPortal>
           <SettingsPageFormActions
-            onSave={form.handleSubmit(onSubmit)}
+            onSave={() => form.handleSubmit(onSubmit)()}
             isSaving={updateOption.isPending}
             saveLabel='Save chat settings'
           />

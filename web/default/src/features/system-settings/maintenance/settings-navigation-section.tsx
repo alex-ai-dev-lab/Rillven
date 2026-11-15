@@ -280,7 +280,7 @@ export function SettingsNavigationSection({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-system-settings-navigation.json'
+    link.download = 'rillven-system-settings-navigation.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('System settings navigation exported'))

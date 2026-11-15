@@ -1,6 +1,6 @@
 # 模型定价、Responses 工具兼容、渠道身份与托管恢复
 
-Status: validated_source
+Status: complete
 Created: 2026-11-15
 Last updated: 2026-11-15
 
@@ -10,7 +10,7 @@ Last updated: 2026-11-15
 
 ## Result
 
-工作树 `D:/Code/renewapi/repair-20261017`，main，基于 `b7788ff39176337f02b5067ca96a85afa2715584`。源码未提交/推送/发布/部署，未触碰其他 worktree 或生产配置。
+工作树 `D:/Code/renewapi/repair-20261017`，main，基于 `b7788ff39176337f02b5067ca96a85afa2715584`。源码已于 2026-11-15 提交 main：`75717ba`，随 Rillven 改名一并交付；未部署生产，未触碰其他 worktree 或生产配置。
 
 - P0：统一定价快照、保存/导出/改名/模式切换，合法工具能力分类和原生 Responses 回退；旧 scrub 不再删除未知父链冒充恢复。
 - P1：每渠道加密身份、稳定凭据 slot、HTTP/WS/header/body 共用 profile、严格出口、管理预览/修改/CAS。

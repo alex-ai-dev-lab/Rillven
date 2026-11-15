@@ -1,8 +1,8 @@
 # 部署
 
-镜像仅通过 [GitHub Releases](https://github.com/alex-ai-dev-lab/renewapi/releases)
+镜像仅通过 [GitHub Releases](https://github.com/alex-ai-dev-lab/rillven/releases)
 分发。先按 [Releases 分发说明](release-distribution.md) 下载、校验并在服务器
-运行 `docker load`，再使用该 Release 对应的 `NEWAPI_IMAGE`。
+运行 `docker load`，再使用该 Release 对应的 `RILLVEN_IMAGE`。
 
 `SQL_DSN` 为空时使用 SQLite，Compose 保留 `/data`、`/app/logs`、`/app/public`
 三个挂载目录。已有安装保留原配置和数据，在切换前完成与当前数据库对应的
@@ -31,9 +31,14 @@ docker compose -f compose.yaml ps
 
 ## 已有安装升级
 
+改名升级沿用部署目录与 Compose 项目名；不要为更名另建数据目录。
+`RILLVEN_*` 的非空值优先于旧 `NEWAPI_*`，两者并存时务必更新优先变量。
+状态 keyring 改名须整组复制已有密钥；不要重新生成或混用新旧前缀。
+原有会话、渠道身份、密文和自定义站点名保持兼容，见 [ADR-024](decisions/024-rillven-rename.md)。
+
 1. 记录当前镜像、Compose 文件、配置与挂载路径，备份数据库及必要文件。
 2. 在服务器下载并校验新 Release，导入镜像；保留原 `.env`，只更新所需的
-   `NEWAPI_IMAGE` 和明确新增的配置，不覆盖会话密钥或数据目录。
+   `RILLVEN_IMAGE` 和明确新增的配置，不覆盖会话密钥或数据目录。
 3. 先在隔离的数据库副本验证迁移，再按部署维护窗口或已有切换流程对实际
    数据库执行上方 `migrate --up`、`migrate --check`。
 4. 使用同一份 Compose 配置启动新镜像，检查容器健康、页面和实际 API。

@@ -8,13 +8,13 @@
 Linux / Bash：
 
 ```bash
-NEWAPI_IMAGE=renewapi:dev bash scripts/local-build.sh --load
+RILLVEN_IMAGE=rillven:dev bash scripts/local-build.sh --load
 ```
 
 Windows / PowerShell：
 
 ```powershell
-.\scripts\local-build.ps1 -Image renewapi:dev -Load
+.\scripts\local-build.ps1 -Image rillven:dev -Load
 ```
 
 这两个加载命令当前构建 `linux/amd64` 镜像。正式的 amd64、arm64 归档由统一
@@ -27,17 +27,16 @@ Actions 工作流在各自架构的 runner 构建并发布到 Releases；本地�
 ## 构建内容
 
 - `frontend-default-builder` 构建唯一的默认前端；classic 已退役，不再安装或打包。
-- `backend-builder` 将前端产物嵌入 Go 程序，运行镜像中的程序路径为 `/app/new-api`。
+- `backend-builder` 将前端产物嵌入 Go 程序，运行镜像中的主程序路径为 `/app/rillven`（保留 `/app/new-api` 兼容链接）。
 - `runtime` 使用 Alpine，包含 CA 证书、健康检查工具和许可证；入口脚本按
   `PUID` / `PGID` 处理数据目录后，以对应用户运行程序。
 
-两套前端资源都是当前构建依赖，不能只因文件内容相同就删除其中一份。
 开发环境另有 `Dockerfile.dev`、`docker-compose.dev.yml` 和根目录 `makefile`，
 用于后端容器配合前端开发服务器，不能替代正式镜像。
 
 ## 启动与检查
 
-本地镜像加载后，将部署目录 `.env` 的 `NEWAPI_IMAGE` 设为 `renewapi:dev`，
+本地镜像加载后，将部署目录 `.env` 的 `RILLVEN_IMAGE` 设为 `rillven:dev`，
 按[部署说明](deploy.md)初始化数据库并启动。默认 Compose 对外端口为 `3002`：
 
 ```bash

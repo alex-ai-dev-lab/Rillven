@@ -298,7 +298,7 @@ P0–P4 是本次无感切换核心范围；P5 的完整工具/资源覆盖和�
 4. feature flags 分开管理 `identity_v2`、`managed_context`、`transparent_recovery`、`atomic_turn`，以会话版本固定行为。禁用新会话 admission 后，既有逻辑 ID 的读映射/恢复兼容保留到 retention 结束；不能简单回滚旧镜像让已交付的 resp ID 全部失效。
 5. 老版本没有托管读取能力，多实例升级必须先铺支持读取的版本，再启用写新 ID/迁移；回退要用能读新表的兼容版本。身份 seed/key ring/数据库一起具备可恢复备份，旧实例排空在途 WS/请求。
 
-方案阶段现状证据见[初次报告](2026-11-pricing-tools-upstream-plan.md)、[账号保护专项](2026-11-client-identity-account-protection-review.md)、[会话调查](2026-11-channel-identity-session-design.md)。后续源码实施使用不可变响应图替代可变 head CAS；P5 能力分项记录，自动目标重压缩和私有资源迁移等仍有边界。已完成验证与启用方式以[实施验收](2026-11-managed-recovery-implementation.md)为准；没有提交、发布或修改生产配置。
+方案阶段现状证据见[初次报告](2026-11-pricing-tools-upstream-plan.md)、[账号保护专项](2026-11-client-identity-account-protection-review.md)、[会话调查](2026-11-channel-identity-session-design.md)。后续源码实施使用不可变响应图替代可变 head CAS；P5 能力分项记录，自动目标重压缩和私有资源迁移等仍有边界。已完成验证与启用方式以[实施验收](2026-11-managed-recovery-implementation.md)为准；源码修复已提交 `75717ba`，未部署或修改生产配置。
 
 [s-identity]: https://github.com/Wei-Shaw/sub2api/blob/530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484/backend/internal/service/openai_codex_account_identity.go
 [s-state]: https://github.com/Wei-Shaw/sub2api/blob/530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484/backend/internal/service/openai_ws_state_store.go

@@ -13,16 +13,19 @@ export function releaseMetadata(input) {
   }
 
   const short = input.sha.slice(0, 12)
-  const product = input.ref.startsWith('refs/tags/renewapi-v')
+  const product = input.ref.startsWith('refs/tags/rillven-v')
+  if (input.ref.startsWith('refs/tags/') && !product) {
+    throw new Error('新产品发布只接受 rillven-v 标签；历史标签保持不变')
+  }
   let tag = input.imageTag || `sha-${short}`
-  let releaseTag = input.releaseTag || `renewapi-build-${short}-${input.runId}`
+  let releaseTag = input.releaseTag || `rillven-build-${short}-${input.runId}`
   let channel = input.ref === 'refs/heads/main' ? 'edge' : 'manual'
   let prerelease = true
-  let name = `RenewAPI ${input.version} 构建 ${short}`
+  let name = `Rillven ${input.version} 构建 ${short}`
 
   if (product) {
     releaseTag = input.ref.slice('refs/tags/'.length)
-    if (releaseTag !== `renewapi-${input.version}`) {
+    if (releaseTag !== `rillven-${input.version}`) {
       throw new Error('产品标签与 VERSION 不一致')
     }
     if (input.imageTag || input.releaseTag) {
@@ -31,10 +34,10 @@ export function releaseMetadata(input) {
     tag = input.version.slice(1)
     channel = 'release'
     prerelease = input.version.includes('-')
-    name = `RenewAPI ${input.version}`
+    name = `Rillven ${input.version}`
   } else {
-    if (!/^renewapi-(?:build|source)-[A-Za-z0-9][A-Za-z0-9._-]*$/.test(releaseTag) || /\s/.test(releaseTag)) {
-      throw new Error('源码包标签必须使用 renewapi-build- 或 renewapi-source- 前缀')
+    if (!/^rillven-(?:build|source)-[A-Za-z0-9][A-Za-z0-9._-]*$/.test(releaseTag) || /\s/.test(releaseTag)) {
+      throw new Error('源码包标签必须使用 rillven-build- 或 rillven-source- 前缀')
     }
     if (['latest', 'edge', 'rc'].includes(tag)) {
       throw new Error('源码镜像必须使用可追溯标签')
@@ -47,7 +50,7 @@ export function releaseMetadata(input) {
   return {
     short,
     tag,
-    image: `renewapi:${tag}`,
+    image: `rillven:${tag}`,
     product_version: input.version,
     release_tag: releaseTag,
     release_name: name,

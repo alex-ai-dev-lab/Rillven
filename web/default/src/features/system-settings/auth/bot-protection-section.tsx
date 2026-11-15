@@ -148,7 +148,7 @@ export function BotProtectionSection({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-bot-protection.json'
+    link.download = 'rillven-bot-protection.json'
     link.click()
     URL.revokeObjectURL(url)
 

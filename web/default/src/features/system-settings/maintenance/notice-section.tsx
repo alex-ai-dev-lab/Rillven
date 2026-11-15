@@ -107,7 +107,7 @@ export function NoticeSection({ defaultValue }: NoticeSectionProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-system-notice.json'
+    link.download = 'rillven-system-notice.json'
     link.click()
     URL.revokeObjectURL(url)
 

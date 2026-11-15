@@ -219,8 +219,7 @@ const buildFormDefaults = (
       defaults['monitor_setting.count_skip_retry_errors_for_disable'],
     count_model_scoped_errors_for_disable:
       defaults['monitor_setting.count_model_scoped_errors_for_disable'],
-    channel_failure_scope:
-      defaults['monitor_setting.channel_failure_scope'],
+    channel_failure_scope: defaults['monitor_setting.channel_failure_scope'],
     count_all_relay_errors_for_disable:
       defaults['monitor_setting.count_all_relay_errors_for_disable'],
   },
@@ -384,7 +383,7 @@ export function MonitoringSettingsSection({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-monitoring-alerts.json'
+    link.download = 'rillven-monitoring-alerts.json'
     link.click()
     URL.revokeObjectURL(url)
 
@@ -723,7 +722,7 @@ export function MonitoringSettingsSection({
               <h3 className='text-sm font-medium'>
                 {t('Consecutive-failure disable policy')}
               </h3>
-              <p className='text-sm text-muted-foreground'>
+              <p className='text-muted-foreground text-sm'>
                 {t(
                   'Unlike the response-time threshold above, this policy controls automatic disabling based on repeated hard errors. A channel is auto-disabled only after it returns a disable-worthy error this many times in a row within the failure window. By default failures are tracked separately per channel and model, and TLS/certificate errors, skip-retry client errors (such as 400 bad request), and model-scoped errors (such as not implemented or no available account/channel) are excluded. Every part of this policy can be tuned below.'
                 )}

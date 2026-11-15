@@ -1,5 +1,5 @@
 param(
-  [string]$Image = $env:NEWAPI_IMAGE,
+  [string]$Image = $(if ($env:RILLVEN_IMAGE) { $env:RILLVEN_IMAGE } else { $env:NEWAPI_IMAGE }),
   [ValidateSet('local','pull','tar')]
   [string]$Mode = 'local',
   [switch]$DryRun,
@@ -24,8 +24,8 @@ $composeFile = if ($env:SERVER_COMPOSE_FILE) { $env:SERVER_COMPOSE_FILE } else {
 $service = if ($env:SERVER_SERVICE_NAME) { $env:SERVER_SERVICE_NAME } else { 'new-api' }
 $health = if ($env:SERVER_HEALTHCHECK_URL) { $env:SERVER_HEALTHCHECK_URL } else { 'http://127.0.0.1:3002/healthz' }
 $proxy = $env:SERVER_PROXY
-if (-not $Image) { $Image = $env:NEWAPI_IMAGE }
-if (-not $Image) { throw "Image tag missing. Pass -Image or set NEWAPI_IMAGE." }
+if (-not $Image) { $Image = if ($env:RILLVEN_IMAGE) { $env:RILLVEN_IMAGE } else { $env:NEWAPI_IMAGE } }
+if (-not $Image) { throw "Image tag missing. Pass -Image or set RILLVEN_IMAGE (legacy NEWAPI_IMAGE is also supported)." }
 
 $sshBase = @('-p', $port, '-o', 'StrictHostKeyChecking=accept-new')
 $scpBase = @('-P', $port, '-o', 'StrictHostKeyChecking=accept-new')
@@ -71,7 +71,7 @@ stamp=`$(date +%Y%m%d%H%M%S)
 old_image=`$(docker compose -f "`$compose_file" images -q "`$service" 2>/dev/null | head -n1 || true)
 [ -n "`$old_image" ] && printf '%s\n' "`$old_image" > backups/previous-image.txt || true
 docker image inspect "`$image" >/dev/null
-NEWAPI_IMAGE="`$image" docker compose -f "`$compose_file" up -d --pull never --no-deps "`$service"
+RILLVEN_IMAGE="`$image" NEWAPI_IMAGE="`$image" docker compose -f "`$compose_file" up -d --pull never --no-deps "`$service"
 for i in `$(seq 1 30); do
   if curl -fsS "`$health_url" >/dev/null; then
     docker compose -f "`$compose_file" ps "`$service"
@@ -84,7 +84,7 @@ done
 echo "Deployment healthcheck failed; attempting rollback" >&2
 if [ -s backups/previous-image.txt ]; then
   previous=`$(cat backups/previous-image.txt)
-  NEWAPI_IMAGE="`$previous" docker compose -f "`$compose_file" up -d --no-deps "`$service" || true
+  RILLVEN_IMAGE="`$previous" NEWAPI_IMAGE="`$previous" docker compose -f "`$compose_file" up -d --no-deps "`$service" || true
 fi
 exit 1
 "@

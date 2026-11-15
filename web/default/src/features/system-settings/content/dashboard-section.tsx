@@ -299,7 +299,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-dashboard-defaults.json'
+    link.download = 'rillven-dashboard-defaults.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('Dashboard defaults exported'))
@@ -692,7 +692,7 @@ export function DashboardSection({ defaultValues }: DashboardSectionProps) {
                         <Checkbox
                           checked={checked}
                           onCheckedChange={(nextChecked) => {
-                            const next = Boolean(nextChecked)
+                            const next = nextChecked
                               ? [...field.value, option.value]
                               : field.value.filter(
                                   (value) => value !== option.value

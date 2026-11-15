@@ -223,7 +223,7 @@ export function ClaudeSettingsCard({ defaultValues }: ClaudeSettingsCardProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-claude-settings.json'
+    link.download = 'rillven-claude-settings.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('Claude settings exported'))
@@ -291,7 +291,7 @@ export function ClaudeSettingsCard({ defaultValues }: ClaudeSettingsCardProps) {
         {/* eslint-disable-next-line react-hooks/refs */}
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
-            onSave={form.handleSubmit(onSubmit)}
+            onSave={() => form.handleSubmit(onSubmit)()}
             isSaving={updateOption.isPending}
           />
           <SettingsPageActionsPortal>

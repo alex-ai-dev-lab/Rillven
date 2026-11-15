@@ -9,7 +9,7 @@ const { chromium } = require('playwright')
 const { createDisposableEnvironment } = require('./disposable-environment.cjs')
 const binary = process.env.QA_BINARY
 const output = path.resolve(process.env.QA_OUT || 'qa-artifacts/model-pricing')
-const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'renewapi-pricing-'))
+const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'rillven-pricing-'))
 const baseURL = 'http://127.0.0.1:39127'
 const report = { checks: [], errors: [] }
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -18,8 +18,8 @@ let child, browser, log, page
   assert(binary && fs.existsSync(binary), 'Set QA_BINARY to the local build')
   fs.mkdirSync(output, { recursive: true })
   const env = { ...createDisposableEnvironment(process.env, temporary, crypto.randomBytes(32).toString('hex')), PORT: '39127' }
-  env.RENEWAPI_STATE_KEYS = JSON.stringify({ qa: crypto.randomBytes(32).toString('base64') })
-  env.RENEWAPI_STATE_ACTIVE_KEY = 'qa'
+  env.RILLVEN_STATE_KEYS = JSON.stringify({ qa: crypto.randomBytes(32).toString('base64') })
+  env.RILLVEN_STATE_ACTIVE_KEY = 'qa'
   const migration = spawnSync(binary, ['migrate', '--up'], { cwd: temporary, env, encoding: 'utf8', windowsHide: true })
   assert.equal(migration.status, 0, migration.stderr)
   log = fs.openSync(path.join(temporary, 'backend.log'), 'w')
@@ -46,6 +46,35 @@ let child, browser, log, page
   const user = (await json(await login)).data
   await page.waitForURL(/\/dashboard/)
   const headers = { 'New-Api-User': String(user.id) }
+  const readStatus = async () => (await json(await context.request.get('/api/status'))).data
+  assert.equal((await readStatus()).system_name, 'Rillven')
+  await page.waitForFunction(() => document.title.includes('Rillven'))
+  await page.locator('a[href="https://github.com/alex-ai-dev-lab/rillven"]').first().waitFor()
+  for (const name of ['New API', 'RenewAPI', 'QA Custom Gateway']) {
+    await json(await context.request.put('/api/option/bulk', { headers, data: { options: { SystemName: name } } }))
+    const expected = name === 'QA Custom Gateway' ? name : 'Rillven'
+    assert.equal((await readStatus()).system_name, expected)
+    const options = (await json(await context.request.get('/api/option/', { headers }))).data
+    assert.equal(options.find(option => option.key === 'SystemName').value, expected)
+    await page.reload({ waitUntil: 'networkidle' })
+    await page.waitForFunction(name => document.title.includes(name), expected)
+  }
+  await json(await context.request.put('/api/option/bulk', { headers, data: { options: { SystemName: 'Rillven' } } }))
+  await page.evaluate(() => {
+    const cached = JSON.parse(localStorage.getItem('system-config-storage'))
+    cached.state.config.systemName = 'RenewAPI'
+    localStorage.setItem('system-config-storage', JSON.stringify(cached))
+    const status = JSON.parse(localStorage.getItem('status'))
+    status.system_name = 'RenewAPI'
+    localStorage.setItem('status', JSON.stringify(status))
+  })
+  // Cached defaults must upgrade even before a successful status refresh.
+  await page.route('**/api/status', route => route.fulfill({ status: 503, body: 'offline for cache check' }))
+  await page.reload({ waitUntil: 'networkidle' })
+  await page.waitForFunction(() => document.title.includes('Rillven'))
+  assert.equal(await page.locator('meta[name="title"]').getAttribute('content'), 'Rillven')
+  await page.unroute('**/api/status')
+  report.checks.push('Rillven default, repository link, legacy defaults and cached name upgrade; custom name preserved')
   await json(await context.request.put('/api/option/bulk', { headers, data: { options: { ModelPrice: '{"qa-pricing":0.01,"qa-other":0.02}' } } }))
   const readPrices = async () => {
     const opts = (await json(await context.request.get('/api/option/', { headers }))).data

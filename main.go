@@ -75,7 +75,7 @@ func main() {
 		return
 	}
 
-	common.SysLog("New API " + common.Version + " started")
+	common.SysLog("Rillven " + common.Version + " started")
 	if os.Getenv("GIN_MODE") != "debug" {
 		gin.SetMode(gin.ReleaseMode)
 	}
@@ -335,7 +335,7 @@ func runMigrationCommand(args []string) int {
 		}
 	}
 	if selected != 1 || flags.NArg() != 0 {
-		fmt.Fprintln(os.Stderr, "usage: new-api migrate --check|--up|--status")
+		fmt.Fprintln(os.Stderr, "usage: rillven migrate --check|--up|--status")
 		return 2
 	}
 

@@ -25,6 +25,7 @@ import { bindAccountQueryCache } from '@/lib/account-query-cache'
 import { getStatus } from '@/lib/api'
 import { shouldRetryQuery, getQueryRetryDelay } from '@/lib/api-errors'
 import { installBuildMetadata } from '@/lib/build-metadata'
+import { normalizeSystemName } from '@/lib/constants'
 import '@/lib/dayjs'
 import { APP_BASE_PATH } from '@/lib/deployment-mode'
 import { applyFaviconToDom } from '@/lib/dom-utils'
@@ -110,11 +111,12 @@ if (!rootElement) {
   try {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
     const apply = (name: string) => {
-      document.title = name
+      const displayName = normalizeSystemName(name)
+      document.title = displayName
       const metaTitle = document.querySelector(
         'meta[name="title"]'
       ) as HTMLMetaElement | null
-      if (metaTitle) metaTitle.setAttribute('content', name)
+      if (metaTitle) metaTitle.setAttribute('content', displayName)
     }
     // Cache-first
     try {

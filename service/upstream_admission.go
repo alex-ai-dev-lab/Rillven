@@ -71,9 +71,9 @@ func WithUpstreamAdmission(c *gin.Context, info *relaycommon.RelayInfo, call fun
 	if until > time.Now().UnixMilli() {
 		return admissionError(model.ErrUpstreamAdmissionBusy)
 	}
-	limit := max(1, min(common.GetEnvOrDefault("RENEWAPI_UPSTREAM_CONCURRENCY", 4), 64))
-	queueLimit := max(1, min(common.GetEnvOrDefault("RENEWAPI_UPSTREAM_QUEUE", 32), 256))
-	wait := time.Duration(max(100, min(common.GetEnvOrDefault("RENEWAPI_UPSTREAM_WAIT_MS", 3000), 30000))) * time.Millisecond
+	limit := max(1, min(common.GetEnvOrDefault("RILLVEN_UPSTREAM_CONCURRENCY", 4), 64))
+	queueLimit := max(1, min(common.GetEnvOrDefault("RILLVEN_UPSTREAM_QUEUE", 32), 256))
+	wait := time.Duration(max(100, min(common.GetEnvOrDefault("RILLVEN_UPSTREAM_WAIT_MS", 3000), 30000))) * time.Millisecond
 	row, err := model.QueueUpstreamAdmission(c.Request.Context(), scopes.Account, uuid.NewString(), queueLimit, wait)
 	if err != nil {
 		return admissionError(err)

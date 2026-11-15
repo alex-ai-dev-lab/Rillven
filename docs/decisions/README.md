@@ -23,3 +23,4 @@ Current decisions:
 - [ADR-021：请求复制、限流存储与长流生命周期](021-relay-performance-and-stream-lifecycle.md)
 - [ADR-022：Claude 扩展字段的协议兼容与渠道故障切换](022-claude-protocol-failover.md)
 - [ADR-023：网关托管上下文与客户端无感渠道切换（源码已实施）](023-managed-conversation-recovery.md)
+- [ADR-024：Rillven 命名与升级兼容](024-rillven-rename.md)

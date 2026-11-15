@@ -1,5 +1,5 @@
 param(
-  [string]$Image = $env:NEWAPI_IMAGE,
+  [string]$Image = $(if ($env:RILLVEN_IMAGE) { $env:RILLVEN_IMAGE } else { $env:NEWAPI_IMAGE }),
   [string]$Version = $env:VERSION,
   [string]$BuildChannel = $(if ($env:BUILD_CHANNEL) { $env:BUILD_CHANNEL } else { "local" }),
   [switch]$Push,
@@ -11,7 +11,7 @@ if ($Push) { throw '镜像仅通过 Releases 分发；本地构建请使用 -Loa
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 if (-not $Version) { $Version = (Get-Content -Raw -LiteralPath (Join-Path $root 'VERSION')).Trim() }
 $dockerVersion = $Version -replace '^v', ''
-if (-not $Image) { $Image = "renewapi:$dockerVersion" }
+if (-not $Image) { $Image = "rillven:$dockerVersion" }
 $commit = (git -C $root rev-parse --short=12 HEAD)
 $date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 $upstream = if ($env:UPSTREAM_REF) { $env:UPSTREAM_REF } else { '58d4e9bd3bb035df8ea235dd682ccc8a45d0332a' }

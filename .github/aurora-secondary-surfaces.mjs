@@ -140,7 +140,7 @@ async function waitForBackend(child) {
   let lastError = null
   for (let attempt = 0; attempt < 120; attempt += 1) {
     if (child.exitCode !== null) {
-      throw new Error(`RenewAPI exited before ready with code ${child.exitCode}`)
+      throw new Error(`Rillven exited before ready with code ${child.exitCode}`)
     }
     try {
       const response = await fetch(`${baseURL}/api/setup`)
@@ -151,7 +151,7 @@ async function waitForBackend(child) {
     }
     await sleep(500)
   }
-  throw new Error(`RenewAPI did not become ready: ${lastError}`)
+  throw new Error(`Rillven did not become ready: ${lastError}`)
 }
 
 async function startBackend(label) {

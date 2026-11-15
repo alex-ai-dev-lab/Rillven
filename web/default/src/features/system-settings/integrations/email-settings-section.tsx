@@ -194,7 +194,7 @@ export function EmailSettingsSection({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-smtp-email.json'
+    link.download = 'rillven-smtp-email.json'
     link.click()
     URL.revokeObjectURL(url)
 
@@ -402,7 +402,7 @@ export function EmailSettingsSection({
                 <FormControl>
                   <Input
                     autoComplete='off'
-                    placeholder={t('New API &lt;noreply@example.com&gt;')}
+                    placeholder={t('Rillven &lt;noreply@example.com&gt;')}
                     {...field}
                     onChange={(event) => field.onChange(event.target.value)}
                   />

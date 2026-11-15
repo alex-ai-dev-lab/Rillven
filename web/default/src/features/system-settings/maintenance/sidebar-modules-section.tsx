@@ -119,7 +119,7 @@ function SidebarModulesEditor(props: Props) {
     )
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-sidebar-modules.json'
+    link.download = 'rillven-sidebar-modules.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success(t('Sidebar configuration exported'))

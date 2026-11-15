@@ -1,6 +1,6 @@
 # 定价、渠道身份与托管恢复实施验收
 
-日期：2026-11-15。工作树：`repair-20261017`，`main`，基于 `b7788ff39176337f02b5067ca96a85afa2715584` 的本地未提交改动。没有提交、推送、发布、部署或修改生产配置。
+日期：2026-11-15。工作树：`repair-20261017`，`main`，基于 `b7788ff39176337f02b5067ca96a85afa2715584`，修复已提交为 `75717ba`。验收在改名前完成，未部署或修改生产配置。当前 Rillven 配置命名与旧变量别名见 [ADR-024](../decisions/024-rillven-rename.md)。
 
 本报告记录[源码方案](2026-11-transparent-failover-source-plan.md)的实际交付范围；调查文档中的生产现状和拟议能力不能替代本报告。设计约束见 [ADR-023](../decisions/023-managed-conversation-recovery.md)。
 

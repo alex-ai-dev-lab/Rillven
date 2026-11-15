@@ -300,7 +300,7 @@ export function AntiPoisonGuardSection({
                     <FormDescription>
                       {ts('settings.antiPoison.enable.description', {
                         defaultValue:
-                          'Validate upstream behavior inside renewapi',
+                          'Validate upstream behavior inside Rillven',
                       })}
                     </FormDescription>
                   </SettingsSwitchContent>
@@ -391,7 +391,7 @@ export function AntiPoisonGuardSection({
             title={t('Failure Handling')}
             description={ts('settings.antiPoison.failureHandling.description', {
               defaultValue:
-                'Choose how renewapi reacts when a guard check fails and what proof is returned.',
+                'Choose how Rillven reacts when a guard check fails and what proof is returned.',
             })}
           >
             <FormField

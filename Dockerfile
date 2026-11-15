@@ -10,7 +10,7 @@ WORKDIR /src
 COPY web/default/package.json web/default/bun.lock ./web/default/
 
 WORKDIR /src/web/default
-RUN --mount=type=cache,id=renewapi-bun-default,target=/root/.bun/install/cache,sharing=locked \
+RUN --mount=type=cache,id=rillven-bun-default,target=/root/.bun/install/cache,sharing=locked \
     bun install --frozen-lockfile
 
 WORKDIR /src
@@ -48,7 +48,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     test "$(go env GOOS)" = "${TARGETOS}" && \
     test "$(go env GOARCH)" = "${TARGETARCH}" && \
-    go build -trimpath -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=${VERSION}'" -o /out/new-api
+    go build -trimpath -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=${VERSION}'" -o /out/rillven
 
 FROM ${RUNTIME_IMAGE} AS runtime
 ARG VERSION=dev
@@ -58,8 +58,9 @@ ARG BUILD_CHANNEL=local
 ARG UPSTREAM_REF=unknown
 ARG RUNTIME_IMAGE=alpine:3.20
 
-LABEL org.opencontainers.image.source="https://github.com/alex-ai-dev-lab/renewapi" \
-      org.opencontainers.image.description="NewAPI source fork with compatibility and anti-poison profile hardening" \
+LABEL org.opencontainers.image.title="Rillven" \
+      org.opencontainers.image.source="https://github.com/alex-ai-dev-lab/rillven" \
+      org.opencontainers.image.description="Rillven AI API gateway" \
       org.opencontainers.image.revision="${COMMIT_SHA}" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
@@ -74,7 +75,8 @@ RUN apk add --no-cache ca-certificates tzdata curl shadow su-exec \
     && chown newapi:newapi /app /app/logs /app/public /data
 
 WORKDIR /data
-COPY --from=backend-builder /out/new-api /app/new-api
+COPY --from=backend-builder /out/rillven /app/rillven
+RUN ln -s /app/rillven /app/new-api
 COPY LICENSE NOTICE THIRD-PARTY-LICENSES.md /licenses/
 
 COPY --chmod=755 <<'EOF' /app/docker-entrypoint.sh
@@ -105,7 +107,7 @@ fix_path() {
 }
 
 if [ $# -eq 0 ] || [ "${1#-}" != "$1" ]; then
-  set -- /app/new-api "$@"
+  set -- /app/rillven "$@"
 fi
 
 if [ "$(id -u)" = "0" ]; then
@@ -125,4 +127,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD curl -fsS "http://127.0.0.1:${PORT:-3000}/api/status" >/dev/null || exit 1
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["/app/new-api", "--log-dir", "/app/logs"]
+CMD ["/app/rillven", "--log-dir", "/app/logs"]

@@ -24,30 +24,30 @@ jobs:
             image: mysql:5.7
             name: mysql-5.7
             health: mysqladmin ping -h 127.0.0.1 -proot
-            dsn: root:root@tcp(127.0.0.1:3306)/renewapi_test?charset=utf8mb4&parseTime=True&loc=UTC
+            dsn: root:root@tcp(127.0.0.1:3306)/rillven_test?charset=utf8mb4&parseTime=True&loc=UTC
           - driver: mysql
             image: mysql:8.4
             name: mysql-8.4
             health: mysqladmin ping -h 127.0.0.1 -proot
-            dsn: root:root@tcp(127.0.0.1:3306)/renewapi_test?charset=utf8mb4&parseTime=True&loc=UTC
+            dsn: root:root@tcp(127.0.0.1:3306)/rillven_test?charset=utf8mb4&parseTime=True&loc=UTC
           - driver: postgres
             image: postgres:9.6
             name: postgres-9.6
-            health: pg_isready -U postgres -d renewapi_test
-            dsn: postgres://postgres:postgres@127.0.0.1:5432/renewapi_test?sslmode=disable
+            health: pg_isready -U postgres -d rillven_test
+            dsn: postgres://postgres:postgres@127.0.0.1:5432/rillven_test?sslmode=disable
           - driver: postgres
             image: postgres:16
             name: postgres-16
-            health: pg_isready -U postgres -d renewapi_test
-            dsn: postgres://postgres:postgres@127.0.0.1:5432/renewapi_test?sslmode=disable
+            health: pg_isready -U postgres -d rillven_test
+            dsn: postgres://postgres:postgres@127.0.0.1:5432/rillven_test?sslmode=disable
     services:
       database:
         image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: renewapi_test
+          MYSQL_DATABASE: rillven_test
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: renewapi_test
+          POSTGRES_DB: rillven_test
         ports:
           - 3306:3306
           - 5432:5432
@@ -66,7 +66,7 @@ jobs:
         run: mkdir -p "$DATABASE_EVIDENCE_DIR"
       - name: 配置 MySQL 测试库字符集
         if: matrix.driver == 'mysql'
-        run: docker exec '${{ job.services.database.id }}' mysql -uroot -proot -e 'ALTER DATABASE renewapi_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
+        run: docker exec '${{ job.services.database.id }}' mysql -uroot -proot -e 'ALTER DATABASE rillven_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'
       - name: 验证旧结构迁移与提示词生命周期
         env:
           REQUEST_GUARD_TEST_DRIVER: ${{ matrix.driver }}

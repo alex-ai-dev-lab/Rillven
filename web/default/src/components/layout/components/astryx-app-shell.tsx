@@ -278,11 +278,11 @@ export function AstryxAppShell(props: AstryxAppShellProps) {
                     .{' '}
                     <a
                       className='underline underline-offset-2'
-                      href='https://github.com/alex-ai-dev-lab/renewapi'
+                      href='https://github.com/alex-ai-dev-lab/rillven'
                       target='_blank'
                       rel='noreferrer'
                     >
-                      RenewAPI
+                      Rillven
                     </a>
                     .
                   </footer>

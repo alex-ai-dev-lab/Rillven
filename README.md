@@ -1,6 +1,6 @@
-# RenewAPI
+# Rillven
 
-RenewAPI 是基于 [QuantumNous/new-api](https://github.com/QuantumNous/new-api)
+Rillven（原 RenewAPI）是基于 [QuantumNous/new-api](https://github.com/QuantumNous/new-api)
 独立维护的 AI API 网关，将多个模型服务接入统一接口，并提供管理控制台。
 
 ## 主要能力
@@ -14,7 +14,7 @@ RenewAPI 是基于 [QuantumNous/new-api](https://github.com/QuantumNous/new-api)
 ## 快速部署
 
 以下用于 **Linux 首次安装**，需要 Docker Compose v2、`curl`、`openssl` 和
-`sha256sum`。镜像只通过 [GitHub Releases](https://github.com/alex-ai-dev-lab/renewapi/releases)
+`sha256sum`。镜像只通过 [GitHub Releases](https://github.com/alex-ai-dev-lab/rillven/releases)
 分发，提供 amd64、arm64 归档，不再发布到 GHCR。源码构建在列表中标为预发行版。
 
 先选定一个 Release，将下方两个占位值替换为其实际标签和镜像附件名。
@@ -23,11 +23,11 @@ RenewAPI 是基于 [QuantumNous/new-api](https://github.com/QuantumNous/new-api)
 
 ```bash
 set -eu
-mkdir renewapi
-cd renewapi
+mkdir rillven
+cd rillven
 RELEASE_TAG='替换为所选 Release 的标签'
 IMAGE_ARCHIVE='替换为该 Release 中对应架构的镜像归档文件名'
-BASE_URL="https://github.com/alex-ai-dev-lab/renewapi/releases/download/$RELEASE_TAG"
+BASE_URL="https://github.com/alex-ai-dev-lab/rillven/releases/download/$RELEASE_TAG"
 
 for file in "$IMAGE_ARCHIVE" CHECKSUMS.txt compose.yaml default.env.example; do
   curl -fLO "$BASE_URL/$file"
@@ -52,13 +52,18 @@ docker compose -f compose.yaml up -d
 
 | 配置 | 说明 |
 | --- | --- |
-| `NEWAPI_IMAGE` | Release 的环境示例已固定对应镜像标签，需先用 `docker load` 导入。 |
+| `RILLVEN_IMAGE` | Release 的环境示例已固定对应镜像标签，需先用 `docker load` 导入。 |
 | `SESSION_SECRET` | 上述命令生成的随机会话密钥；重启和升级时保留。 |
-| `NEWAPI_HOST_PORT` | 对外端口，默认 `3002`。 |
+| `RILLVEN_HOST_PORT` | 对外端口，默认 `3002`。 |
 | `SQL_DSN` | 留空使用 SQLite；也支持 MySQL 和 PostgreSQL。 |
 
 默认在部署目录的 `data/`、`logs/`、`public/` 保存数据库、日志及公共文件。
 更多参数见[环境示例](.env.example)；生产环境应配置 HTTPS 并限制管理入口访问。
+
+Rillven 的 `RILLVEN_*` 部署参数兼容原 `NEWAPI_*`；历史 Release 继续使用原始
+标签、镜像名和环境示例。现有安装保留部署目录、Compose 项目名及状态密钥。
+容器保留 `/app/new-api` 兼容入口，上述命令也适用于历史版本；新入口为
+`/app/rillven`。完整改名边界见 [ADR-024](docs/decisions/024-rillven-rename.md)。
 
 - [部署与升级](docs/deploy.md) · [Releases 下载与发布规则](docs/release-distribution.md)
 - [从源码构建](docs/docker.md) · [Responses WebSocket](docs/responses-websocket.md)

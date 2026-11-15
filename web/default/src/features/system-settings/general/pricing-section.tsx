@@ -193,7 +193,7 @@ export function PricingSection({ defaultValues }: PricingSectionProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-currency-display.json'
+    link.download = 'rillven-currency-display.json'
     link.click()
     URL.revokeObjectURL(url)
 

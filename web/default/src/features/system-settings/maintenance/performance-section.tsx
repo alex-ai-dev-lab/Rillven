@@ -333,7 +333,7 @@ export function PerformanceSection(props: Props) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-performance.json'
+    link.download = 'rillven-performance.json'
     link.click()
     URL.revokeObjectURL(url)
 

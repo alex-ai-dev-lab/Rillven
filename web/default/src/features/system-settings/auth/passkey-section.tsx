@@ -368,7 +368,7 @@ export function PasskeySection(props: PasskeySectionProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-passkey-authentication.json'
+    link.download = 'rillven-passkey-authentication.json'
     link.click()
     URL.revokeObjectURL(url)
 
@@ -483,7 +483,7 @@ export function PasskeySection(props: PasskeySectionProps) {
                 <FormLabel>{t('Relying Party Display Name')}</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder={t('e.g. New API Console')}
+                    placeholder={t('e.g. Rillven Console')}
                     value={field.value ?? ''}
                     onChange={(event) => field.onChange(event.target.value)}
                     name={field.name}

@@ -12,6 +12,6 @@ if (-not $hostName -or -not $user -or -not $deployDir) { throw "SERVER_HOST, SER
 $sshBase = @('-p', $port, '-o', 'StrictHostKeyChecking=accept-new')
 if ($env:SSH_KEY_PATH -and $env:SSH_AUTH_METHOD -ne 'password') { $sshBase += @('-i', $env:SSH_KEY_PATH) }
 if ($env:SSH_AUTH_METHOD -eq 'password' -and -not $AllowPasswordAuth) { throw "Password SSH requested. Re-run with -AllowPasswordAuth." }
-$script = "set -eu; cd '$deployDir'; previous=`$(cat backups/previous-image.txt); NEWAPI_IMAGE=`$previous docker compose -f '$composeFile' up -d --no-deps '$service'; docker compose -f '$composeFile' ps '$service'"
+$script = "set -eu; cd '$deployDir'; previous=`$(cat backups/previous-image.txt); RILLVEN_IMAGE=`$previous NEWAPI_IMAGE=`$previous docker compose -f '$composeFile' up -d --no-deps '$service'; docker compose -f '$composeFile' ps '$service'"
 if ($DryRun) { Write-Host "DRY-RUN rollback prepared for $user@$hostName"; exit 0 }
 if ($env:SSH_AUTH_METHOD -eq 'password') { $env:SSHPASS = $env:SERVER_PASSWORD; sshpass -e ssh @sshBase "$user@$hostName" $script } else { ssh @sshBase "$user@$hostName" $script }

@@ -209,7 +209,7 @@ async function waitForBackend(child) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     if (child.exitCode !== null) {
       throw new Error(
-        `RenewAPI exited before becoming ready with code ${child.exitCode}`
+        `Rillven exited before becoming ready with code ${child.exitCode}`
       )
     }
     try {
@@ -221,7 +221,7 @@ async function waitForBackend(child) {
     }
     await sleep(500)
   }
-  throw new Error(`RenewAPI did not become ready: ${lastError}`)
+  throw new Error(`Rillven did not become ready: ${lastError}`)
 }
 
 async function stopBackend(server, reason = 'normal') {

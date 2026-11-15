@@ -82,7 +82,12 @@ var stateCipherCache struct {
 }
 
 func RelayStateCipher() (*StateCipher, error) {
-	raw, active := os.Getenv("RENEWAPI_STATE_KEYS"), os.Getenv("RENEWAPI_STATE_ACTIVE_KEY")
+	// Choose an entire keyring configuration, never mix prefixes. Compose can
+	// pass empty values for unset variables, so only nonempty values select it.
+	raw, active := os.Getenv("RILLVEN_STATE_KEYS"), os.Getenv("RILLVEN_STATE_ACTIVE_KEY")
+	if raw == "" && active == "" {
+		raw, active = os.Getenv("RENEWAPI_STATE_KEYS"), os.Getenv("RENEWAPI_STATE_ACTIVE_KEY")
+	}
 	stateCipherCache.RLock()
 	if raw == stateCipherCache.raw && active == stateCipherCache.active && stateCipherCache.cipher != nil {
 		c := stateCipherCache.cipher
@@ -91,8 +96,8 @@ func RelayStateCipher() (*StateCipher, error) {
 	}
 	stateCipherCache.RUnlock()
 	var keys map[string]string
-	if raw == "" || Unmarshal([]byte(raw), &keys) != nil {
-		return nil, errors.New("configure RENEWAPI_STATE_KEYS and RENEWAPI_STATE_ACTIVE_KEY before enabling durable relay state")
+	if raw == "" || active == "" || Unmarshal([]byte(raw), &keys) != nil {
+		return nil, errors.New("configure RILLVEN_STATE_KEYS and RILLVEN_STATE_ACTIVE_KEY together before enabling durable relay state (legacy RENEWAPI pair is also supported)")
 	}
 	c, err := NewStateCipher(active, keys)
 	if err != nil {

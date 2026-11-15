@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 Rillven contributors. SPDX-License-Identifier: AGPL-3.0-or-later */
 import { combineBillingExpr } from '@/features/pricing/lib/billing-expr'
 import type { ModelRatioData } from './model-pricing-sheet'
 

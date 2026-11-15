@@ -6,10 +6,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-if (-not $Tag) { throw 'Product release tag is required (for example: renewapi-v1.0.0-rc.1).' }
-if ($Tag -notmatch '^renewapi-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') { throw "Invalid product release tag: $Tag" }
+if (-not $Tag) { throw 'Product release tag is required (for example: rillven-v1.0.0-rc.1).' }
+if ($Tag -notmatch '^rillven-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$') { throw "Invalid product release tag: $Tag" }
 
-$productVersion = $Tag -replace '^renewapi-', ''
+$productVersion = $Tag -replace '^rillven-', ''
 $version = (Get-Content -Raw -LiteralPath 'VERSION').Trim()
 if ($version -ne $productVersion) { throw "VERSION ($version) does not match product tag version ($productVersion)" }
 

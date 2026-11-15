@@ -5,7 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 mode="local"
 dry_run="false"
 allow_password="false"
-image="${NEWAPI_IMAGE:-}"
+image="${RILLVEN_IMAGE:-${NEWAPI_IMAGE:-}}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --image) image="$2"; shift 2 ;;
@@ -26,7 +26,7 @@ source "$root/scripts/load-local-secrets.sh" server >/dev/null
 : "${SERVER_HOST:?SERVER_HOST missing}"
 : "${SERVER_USER:?SERVER_USER missing}"
 : "${SERVER_DEPLOY_DIR:?SERVER_DEPLOY_DIR missing}"
-: "${image:?image missing, pass --image or set NEWAPI_IMAGE}"
+: "${image:?image missing, pass --image or set RILLVEN_IMAGE (legacy NEWAPI_IMAGE is also supported)}"
 
 SERVER_PORT="${SERVER_PORT:-22}"
 SERVER_COMPOSE_FILE="${SERVER_COMPOSE_FILE:-compose.yaml}"
@@ -67,7 +67,7 @@ stamp=\$(date +%Y%m%d%H%M%S)
 old_image=\$(docker compose -f "\$compose_file" images -q "\$service" 2>/dev/null | head -n1 || true)
 [ -n "\$old_image" ] && printf '%s\n' "\$old_image" > backups/previous-image.txt || true
 docker image inspect "\$image" >/dev/null
-NEWAPI_IMAGE="\$image" docker compose -f "\$compose_file" up -d --pull never --no-deps "\$service"
+RILLVEN_IMAGE="\$image" NEWAPI_IMAGE="\$image" docker compose -f "\$compose_file" up -d --pull never --no-deps "\$service"
 for i in \$(seq 1 30); do
   if curl -fsS "\$health_url" >/dev/null; then
     docker compose -f "\$compose_file" ps "\$service"
@@ -80,7 +80,7 @@ done
 echo "Deployment healthcheck failed; attempting rollback" >&2
 if [ -s backups/previous-image.txt ]; then
   previous=\$(cat backups/previous-image.txt)
-  NEWAPI_IMAGE="\$previous" docker compose -f "\$compose_file" up -d --no-deps "\$service" || true
+  RILLVEN_IMAGE="\$previous" NEWAPI_IMAGE="\$previous" docker compose -f "\$compose_file" up -d --no-deps "\$service" || true
 fi
 exit 1
 REMOTE

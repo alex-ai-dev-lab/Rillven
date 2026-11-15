@@ -317,7 +317,7 @@ export function ClientIdentitySettingsCard() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-client-identity.json'
+    link.download = 'rillven-client-identity.json'
     link.click()
     URL.revokeObjectURL(url)
     toast.success('客户端标识配置已导出')
@@ -491,7 +491,7 @@ export function ClientIdentitySettingsCard() {
                   <div className='space-y-0.5'>
                     <FormLabel>启用客户端标识管理</FormLabel>
                     <FormDescription>
-                      启用后，renewapi 会在匹配的请求中写入配置好的标识符。
+                      启用后，Rillven 会在匹配的请求中写入配置好的标识符。
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -601,7 +601,7 @@ export function ClientIdentitySettingsCard() {
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    强制全局值：始终替换为 renewapi 后台配置的 ID。
+                    强制全局值：始终替换为 Rillven 后台配置的 ID。
                   </FormDescription>
                 </FormItem>
               )}
@@ -834,7 +834,7 @@ export function ClientIdentitySettingsCard() {
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    强制全局值会把请求中的 session_id 替换为 renewapi
+                    强制全局值会把请求中的 session_id 替换为 Rillven
                     后台配置值。
                   </FormDescription>
                 </FormItem>

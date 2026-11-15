@@ -347,6 +347,9 @@ func rollbackOptionValues(keys []string, previous, previousOptionMap map[string]
 }
 
 func updateOptionMap(key string, value string) (err error) {
+	if key == "SystemName" {
+		value = common.NormalizeSystemName(value)
+	}
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	previousValue, hadPreviousValue := common.OptionMap[key]

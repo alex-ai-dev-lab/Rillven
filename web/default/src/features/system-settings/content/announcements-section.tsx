@@ -181,6 +181,8 @@ export function AnnouncementsSection({
     try {
       const parsed = JSON.parse(data || '[]')
       if (Array.isArray(parsed)) {
+        // Server option refreshes hydrate the local editable draft.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAnnouncements(
           parsed.map((item, idx) => ({
             ...item,
@@ -194,6 +196,8 @@ export function AnnouncementsSection({
   }, [data])
 
   useEffect(() => {
+    // Keep the draft toggle in sync with asynchronously loaded server options.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsEnabled(enabled)
   }, [enabled])
 
@@ -340,7 +344,7 @@ export function AnnouncementsSection({
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-announcements.json'
+    link.download = 'rillven-announcements.json'
     link.click()
     URL.revokeObjectURL(url)
 

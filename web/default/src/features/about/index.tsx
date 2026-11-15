@@ -60,14 +60,14 @@ function EmptyAboutState() {
         </div>
         <div className='space-y-4 text-sm'>
           <p>
-            {t('New API Project Repository:')}{' '}
+            {t('Rillven Project Repository:')}{' '}
             <a
-              href='https://github.com/QuantumNous/new-api'
+              href='https://github.com/alex-ai-dev-lab/rillven'
               target='_blank'
               rel='noopener noreferrer'
               className='text-primary underline underline-offset-4'
             >
-              {t('https://github.com/QuantumNous/new-api')}
+              https://github.com/alex-ai-dev-lab/rillven
             </a>
           </p>
           <p className='text-muted-foreground'>

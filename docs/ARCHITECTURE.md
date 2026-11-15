@@ -1,8 +1,8 @@
-# RenewAPI Architecture
+# Rillven Architecture
 
 ## Product boundary
 
-RenewAPI is a downstream source fork of NewAPI. The Go module path and core
+Rillven is a downstream source fork of NewAPI. The Go module path and core
 API/data model remain upstream-compatible, while compatibility bridges, routing
 hardening, billing safeguards, anti-poison controls, and deployment tooling
 are fork-owned. NewAPI, Sub2API, and CPA changes are reviewed as references;
@@ -36,12 +36,12 @@ provider adapter pipeline under `relay/`. Shared concerns live in
 
 ## Version and build metadata
 
-`VERSION` is the RenewAPI product version and is injected into the frontend
+`VERSION` is the Rillven product version and is injected into the frontend
 build and `common.Version` through the existing Docker linker path. The
 runtime accepts a `VERSION` environment override for compatibility. `/api/status`
 and `/healthz` expose this product version.
 
-RenewAPI product Git tags use `renewapi-v<version>`; raw upstream `v*` tags are
+Rillven product Git tags use `rillven-v<version>`; raw upstream `v*` tags are
 not product releases. Docker product tags strip the leading `v`.
 
 Git commit, build time, build channel, and audited upstream reference are

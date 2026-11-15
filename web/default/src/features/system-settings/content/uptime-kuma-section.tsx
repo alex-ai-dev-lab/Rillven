@@ -138,6 +138,8 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
     try {
       const parsed = JSON.parse(data || '[]')
       if (Array.isArray(parsed)) {
+        // Server option refreshes hydrate the local editable draft.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setGroups(
           parsed.map((item, idx) => ({
             ...item,
@@ -151,6 +153,8 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
   }, [data])
 
   useEffect(() => {
+    // Keep the draft toggle in sync with asynchronously loaded server options.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsEnabled(enabled)
   }, [enabled])
 
@@ -291,7 +295,7 @@ export function UptimeKumaSection({ enabled, data }: UptimeKumaSectionProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = 'renewapi-uptime-kuma.json'
+    link.download = 'rillven-uptime-kuma.json'
     link.click()
     URL.revokeObjectURL(url)
 

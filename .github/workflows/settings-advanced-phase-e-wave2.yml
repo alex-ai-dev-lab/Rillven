@@ -41,12 +41,12 @@ jobs:
           bun run typecheck
           bun run build
 
-      - name: Build real RenewAPI binary
-        run: go build -o "$RUNNER_TEMP/renewapi-settings-phase-e-wave2" .
+      - name: Build real Rillven binary
+        run: go build -o "$RUNNER_TEMP/rillven-settings-phase-e-wave2" .
 
       - name: Bootstrap fresh SQLite with production migrations
         env:
-          SQLITE_PATH: ${{ runner.temp }}/renewapi-settings-phase-e-wave2.db
+          SQLITE_PATH: ${{ runner.temp }}/rillven-settings-phase-e-wave2.db
           SESSION_SECRET: settings-advanced-phase-e-wave2-2026-08-24
           GIN_MODE: release
           DEBUG: 'false'
@@ -57,8 +57,8 @@ jobs:
           NODE_TYPE: slave
           TZ: Asia/Taipei
         run: |
-          "$RUNNER_TEMP/renewapi-settings-phase-e-wave2" migrate --up
-          "$RUNNER_TEMP/renewapi-settings-phase-e-wave2" migrate --check
+          "$RUNNER_TEMP/rillven-settings-phase-e-wave2" migrate --up
+          "$RUNNER_TEMP/rillven-settings-phase-e-wave2" migrate --check
 
       - name: Install Playwright for QA only
         working-directory: web/default
@@ -72,8 +72,8 @@ jobs:
       - name: Run Advanced Settings real-backend Wave 2
         working-directory: web/default
         env:
-          QA_BINARY: ${{ runner.temp }}/renewapi-settings-phase-e-wave2
-          QA_DB: ${{ runner.temp }}/renewapi-settings-phase-e-wave2.db
+          QA_BINARY: ${{ runner.temp }}/rillven-settings-phase-e-wave2
+          QA_DB: ${{ runner.temp }}/rillven-settings-phase-e-wave2.db
           QA_OUT: ../../qa-artifacts/settings-advanced-phase-e-wave2
           QA_PORT: '4173'
           QA_SCREENSHOTS: 'false'

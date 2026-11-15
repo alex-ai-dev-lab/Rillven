@@ -1,14 +1,27 @@
-# RenewAPI 当前项目状态
+# Rillven 当前项目状态
 
 更新日期：2026-11-15。源码状态以 Git 提交和工作树改动为准，生产镜像与验收范围以对应部署归档为准。
 
+## Rillven 改名（源码已验证，生产未部署）
+
+项目更名为 Rillven，GitHub 仓库为 [alex-ai-dev-lab/rillven](https://github.com/alex-ai-dev-lab/rillven)。
+仓库 ID `1234291482`、默认分支 main 及改名前全部远端 refs 保持不变，旧地址 301 跳转。
+界面、CLI、当前文档和后续构建命名已更新；旧配置别名、密文/会话标识、历史发布、
+原作者署名和自定义站点名保留。变更与前一轮修复分别在 main 提交。
+
+Go 全仓测试/vet/build、密钥兼容 race、前端 240 测试/类型/语义与改动文件 lint/格式/
+版权检查/冻结锁文件安装/构建、发布元数据及 actionlint、两套 Compose 三种配置组合通过。
+Playwright 十组检查覆盖旧缓存/自定义名称、零定价保存、失败重试、多视口及身份/恢复配置真保存。
+发现并修复页面标题的独立旧缓存读取遗漏；生产未部署。细节见 [ADR-024](decisions/024-rillven-rename.md)
+和[改名归档](../tasks/archive/2026-11-rillven-rename.md)。
+
 ## 定价、工具兼容及账号保护（源码已实现，未部署）
 
-在 `repair-20261017` 的 main 工作树完成统一定价保存、Responses 工具原生回退、渠道/凭据独立身份、严格出口、加密托管上下文及 HTTP/SSE/WS 恢复、atomic_turn 与现有资金账本协调、OAuth grant journal 和可选账户 FIFO/额度冷却。没有提交、推送、发布或部署。
+在 `repair-20261017` 的 main 工作树完成统一定价保存、Responses 工具原生回退、渠道/凭据独立身份、严格出口、加密托管上下文及 HTTP/SSE/WS 恢复、atomic_turn 与现有资金账本协调、OAuth grant journal 和可选账户 FIFO/额度冷却。已提交 main：`75717ba`；生产未部署。
 
 全仓 Go 测试/vet/build、受影响路径 race、前端 234 项测试/类型/改动文件 lint/构建、四个外部数据库版本、30 组独立进程崩溃恢复及 Playwright 真保存通过。功能默认灰度启用，需要独立状态 keyring；关闭新会话写入后须保留旧逻辑 ID 的读取能力。
 
-实际范围、默认限制、启用/回退、验证证据及未覆盖的目标重压缩/私有资源/厂商 quota/TLS 试点见[实施验收](audits/2026-11-managed-recovery-implementation.md)、[ADR-023](decisions/023-managed-conversation-recovery.md)和[任务记录](../tasks/active/2026-11-pricing-tools-upstream.md)。不保证任意历史或已输出的实时流都可透明迁移，也不将本地验证当成生产防封禁证明。
+实际范围、默认限制、启用/回退、验证证据及未覆盖的目标重压缩/私有资源/厂商 quota/TLS 试点见[实施验收](audits/2026-11-managed-recovery-implementation.md)、[ADR-023](decisions/023-managed-conversation-recovery.md)和[任务记录](../tasks/archive/2026-11-pricing-tools-upstream.md)。不保证任意历史或已输出的实时流都可透明迁移，也不将本地验证当成生产防封禁证明。
 
 ## v1.5.1 已发布上线
 

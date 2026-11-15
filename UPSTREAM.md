@@ -4,11 +4,11 @@
 - Last fully audited ref: `58d4e9bd3bb035df8ea235dd682ccc8a45d0332a`
 - Release boundary: `v1.0.0-rc.24` plus post-release `main`
 - Audit completed: `2026-08-14`
-- RenewAPI commit at audit completion: `91d636fba97864e54a9aec2f55667e14bcd6ae34`
+- Rillven commit at audit completion: `91d636fba97864e54a9aec2f55667e14bcd6ae34`
 - Audit ledger: `UPSTREAM_PORTS.md`
 - Sync strategy: selective manual ports; merge/rebase is refused because no common ancestor exists.
 
-The current checkout contains later RenewAPI commits after the audited fork
+The current checkout contains later Rillven commits after the audited fork
 review base. They do not change the audited upstream ref; review new upstream
 commits with the scripts and advance this baseline only after a complete audit.
 

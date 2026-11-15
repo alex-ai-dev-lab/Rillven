@@ -3,8 +3,8 @@
 Local credentials live outside the committed source in:
 
 ```text
-E:\Code\newapi\Token\github-auth.env
-E:\Code\newapi\Token\server-access.env
+D:\Code\renewapi\Token\github-auth.env
+D:\Code\renewapi\Token\server-access.env
 ```
 
 `github-auth.env` keys:
@@ -12,11 +12,14 @@ E:\Code\newapi\Token\server-access.env
 ```text
 GITHUB_USERNAME=
 GITHUB_TOKEN=
-GITHUB_REPO=
+GITHUB_REPO=alex-ai-dev-lab/rillven
 GHCR_REGISTRY=ghcr.io
 GHCR_OWNER=
 GHCR_IMAGE=renewapi
 ```
+
+`GHCR_*` 仅保留为旧工具的历史配置；当前构建通过 GitHub Releases 分发。
+项目改名不移动本地凭据目录，既有凭据内容不随源码提交。
 
 `server-access.env` keys:
 
@@ -38,8 +41,8 @@ SSH_KEY_PATH=
 Windows file permissions:
 
 ```powershell
-icacls E:\Code\newapi\Token /inheritance:r
-icacls E:\Code\newapi\Token /grant "$env:USERNAME:(OI)(CI)F"
+icacls D:\Code\renewapi\Token /inheritance:r
+icacls D:\Code\renewapi\Token /grant "$env:USERNAME:(OI)(CI)F"
 ```
 
 Rotate tokens/passwords by updating the env files and revoking old credentials at the provider. Use GitHub Actions secrets only for CI-specific credentials; local scripts read only from `Token/`.
