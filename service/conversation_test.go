@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http/httptest"
 	"strings"
@@ -106,7 +105,7 @@ func TestManagedConversationRejectsOrphanToolOutput(t *testing.T) {
 		`[{"type":"function_call","call_id":"same"},{"type":"function_call","call_id":"same"}]`,
 		`[{"type":"custom_tool_call","call_id":"mixed"},{"type":"function_call_output","call_id":"mixed"}]`,
 	} {
-		var items []json.RawMessage
+		var items []common.RawMessage
 		require.NoError(t, common.Unmarshal([]byte(input), &items))
 		require.Error(t, validateConversationToolPairs(items))
 	}

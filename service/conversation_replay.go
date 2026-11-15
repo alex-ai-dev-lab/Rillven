@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -28,11 +27,11 @@ const ManagedResponsePrefix = "resp_renew_"
 const conversationTurnLifetime = 600 * time.Second
 
 type conversationPayload struct {
-	Version      int               `json:"version"`
-	Input        []json.RawMessage `json:"input"`
-	Output       []json.RawMessage `json:"output"`
-	Compact      bool              `json:"compact,omitempty"`
-	Materialized bool              `json:"materialized,omitempty"`
+	Version      int                 `json:"version"`
+	Input        []common.RawMessage `json:"input"`
+	Output       []common.RawMessage `json:"output"`
+	Compact      bool                `json:"compact,omitempty"`
+	Materialized bool                `json:"materialized,omitempty"`
 }
 
 // A request owns its immutable input and parent graph. Each attempt has a fresh
@@ -40,7 +39,7 @@ type conversationPayload struct {
 type ConversationTurn struct {
 	Owner, SessionID, ResponseID, RequestID         string
 	Parent                                          *model.ConversationCheckpoint
-	Input, Delta                                    []json.RawMessage
+	Input, Delta                                    []common.RawMessage
 	Original                                        []byte
 	Settings                                        operation_setting.ConversationRecoverySetting
 	Compact, Portable, UnsafeTools, Managed, Shadow bool
@@ -76,15 +75,15 @@ func ConversationPreferredChannel(c *gin.Context) int {
 	return 0
 }
 
-func conversationInput(raw json.RawMessage) ([]json.RawMessage, error) {
+func conversationInput(raw common.RawMessage) ([]common.RawMessage, error) {
 	if len(raw) == 0 {
 		return nil, nil
 	}
 	if gjson.ParseBytes(raw).Type == gjson.String {
 		item, err := common.Marshal(map[string]string{"role": "user", "content": gjson.ParseBytes(raw).String()})
-		return []json.RawMessage{item}, err
+		return []common.RawMessage{item}, err
 	}
-	var items []json.RawMessage
+	var items []common.RawMessage
 	if string(raw) == "null" || common.Unmarshal(raw, &items) != nil {
 		return nil, errors.New("invalid Responses input")
 	}
@@ -118,7 +117,7 @@ func PrepareConversationContext(c *gin.Context) *types.NewAPIError {
 	if err != nil {
 		return types.NewConversationStoreUnavailable()
 	}
-	var fields map[string]json.RawMessage
+	var fields map[string]common.RawMessage
 	if common.Unmarshal(body, &fields) != nil || fields == nil {
 		return types.NewError(errors.New("invalid Responses request"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
@@ -230,7 +229,7 @@ func PrepareConversationContext(c *gin.Context) *types.NewAPIError {
 	return nil
 }
 
-func (t *ConversationTurn) replay(ctx context.Context, parent *model.ConversationCheckpoint) ([]json.RawMessage, error) {
+func (t *ConversationTurn) replay(ctx context.Context, parent *model.ConversationCheckpoint) ([]common.RawMessage, error) {
 	cipher, err := common.RelayStateCipher()
 	if err != nil {
 		return nil, err
@@ -267,7 +266,7 @@ func (t *ConversationTurn) replay(ctx context.Context, parent *model.Conversatio
 			return nil, err
 		}
 	}
-	var items []json.RawMessage
+	var items []common.RawMessage
 	for i := len(nodes) - 1; i >= 0; i-- {
 		items = append(items, nodes[i].Input...)
 		if !nodes[i].Compact {
@@ -279,7 +278,7 @@ func (t *ConversationTurn) replay(ctx context.Context, parent *model.Conversatio
 
 // Account-private resources have no portable upload contract in this gateway.
 // Only explicit protocol reference fields are inspected, never tool text.
-func portableConversationItems(items []json.RawMessage) bool {
+func portableConversationItems(items []common.RawMessage) bool {
 	for _, raw := range items {
 		item := gjson.ParseBytes(raw)
 		switch item.Get("type").String() {
@@ -301,7 +300,7 @@ func portableConversationItems(items []json.RawMessage) bool {
 	return true
 }
 
-func hasUnrecoverableServerTools(raw json.RawMessage) bool {
+func hasUnrecoverableServerTools(raw common.RawMessage) bool {
 	for _, tool := range gjson.ParseBytes(raw).Array() {
 		switch tool.Get("type").String() {
 		case "", "function", "custom", "web_search", "web_search_preview":
@@ -316,7 +315,7 @@ func hasUnrecoverableServerTools(raw json.RawMessage) bool {
 	return false
 }
 
-func validateConversationToolPairs(items []json.RawMessage) error {
+func validateConversationToolPairs(items []common.RawMessage) error {
 	calls, outputs := make(map[string]string), make(map[string]bool)
 	for _, raw := range items {
 		item := gjson.ParseBytes(raw)

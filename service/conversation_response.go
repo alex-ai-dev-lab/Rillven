@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
@@ -28,7 +27,7 @@ type conversationAttempt struct {
 	ctx                           context.Context
 	channelID                     int
 	slotID, routeKey, upstreamID  string
-	output                        []json.RawMessage
+	output                        []common.RawMessage
 	resources                     []model.ConversationResource
 	complete, prepared, published bool
 	nativeState                   bool
@@ -338,7 +337,7 @@ func (a *conversationAttempt) ValidateResponse() error {
 	if !a.complete {
 		return errors.New("managed response has no complete terminal")
 	}
-	return validateConversationToolPairs(append(append([]json.RawMessage(nil), a.turn.Input...), a.output...))
+	return validateConversationToolPairs(append(append([]common.RawMessage(nil), a.turn.Input...), a.output...))
 }
 
 func (a *conversationAttempt) PrepareCommit(quota int, ledgerID uint64) error {
@@ -351,7 +350,7 @@ func (a *conversationAttempt) PrepareCommit(quota int, ledgerID uint64) error {
 	if ledgerID == 0 && quota != 0 {
 		return errors.New("managed conversation requires durable billing")
 	}
-	output := make([]json.RawMessage, 0, len(a.output))
+	output := make([]common.RawMessage, 0, len(a.output))
 	for _, item := range a.output {
 		// Hidden reasoning has no portable decryption contract. Keep only the
 		// visible message/tool history; never send another account's ciphertext.
