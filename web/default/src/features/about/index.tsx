@@ -62,12 +62,12 @@ function EmptyAboutState() {
           <p>
             {t('Rillven Project Repository:')}{' '}
             <a
-              href='https://github.com/alex-ai-dev-lab/rillven'
+              href='https://github.com/alex-ai-dev-lab/Rillven'
               target='_blank'
               rel='noopener noreferrer'
               className='text-primary underline underline-offset-4'
             >
-              https://github.com/alex-ai-dev-lab/rillven
+              https://github.com/alex-ai-dev-lab/Rillven
             </a>
           </p>
           <p className='text-muted-foreground'>

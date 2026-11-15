@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { SystemStatePage } from './system-state-page'
 
-const FEEDBACK_URL = 'https://github.com/alex-ai-dev-lab/rillven/issues'
+const FEEDBACK_URL = 'https://github.com/alex-ai-dev-lab/Rillven/issues'
 
 type GeneralErrorProps = React.HTMLAttributes<HTMLDivElement> & {
   minimal?: boolean

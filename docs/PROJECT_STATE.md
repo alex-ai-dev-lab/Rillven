@@ -2,6 +2,12 @@
 
 更新日期：2026-11-15。源码状态以 Git 提交和工作树改动为准，生产镜像与验收范围以对应部署归档为准。
 
+## v1.6.0 正式发布（进行中）
+
+按用户要求将已验收的 Rillven 功能发布为 v1.6.0 正式版，完整标签构建、Latest 核对
+和生产镜像升级见[当前任务](../tasks/active/2026-11-release-v1.6.0.md)。此前源码预发行
+及线上身份仍以上一轮部署记录为准，正式上线后更新。
+
 ## Rillven 改名（已部署）
 
 项目更名为 Rillven，GitHub 仓库为 [alex-ai-dev-lab/Rillven](https://github.com/alex-ai-dev-lab/Rillven)（R 大写）。

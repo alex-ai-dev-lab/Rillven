@@ -49,7 +49,7 @@ let child, browser, log, page
   const readStatus = async () => (await json(await context.request.get('/api/status'))).data
   assert.equal((await readStatus()).system_name, 'Rillven')
   await page.waitForFunction(() => document.title.includes('Rillven'))
-  await page.locator('a[href="https://github.com/alex-ai-dev-lab/rillven"]').first().waitFor()
+  await page.locator('a[href="https://github.com/alex-ai-dev-lab/Rillven"]').first().waitFor()
   for (const name of ['New API', 'RenewAPI', 'QA Custom Gateway']) {
     await json(await context.request.put('/api/option/bulk', { headers, data: { options: { SystemName: name } } }))
     const expected = name === 'QA Custom Gateway' ? name : 'Rillven'

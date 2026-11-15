@@ -59,7 +59,7 @@ ARG UPSTREAM_REF=unknown
 ARG RUNTIME_IMAGE=alpine:3.20
 
 LABEL org.opencontainers.image.title="Rillven" \
-      org.opencontainers.image.source="https://github.com/alex-ai-dev-lab/rillven" \
+      org.opencontainers.image.source="https://github.com/alex-ai-dev-lab/Rillven" \
       org.opencontainers.image.description="Rillven AI API gateway" \
       org.opencontainers.image.revision="${COMMIT_SHA}" \
       org.opencontainers.image.version="${VERSION}" \

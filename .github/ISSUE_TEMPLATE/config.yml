@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: 项目说明
-    url: https://github.com/alex-ai-dev-lab/rillven/blob/main/README.md
+    url: https://github.com/alex-ai-dev-lab/Rillven/blob/main/README.md
     about: 提交 issue 前请先查阅文档，确认现有说明无法解决你的问题。
   - name: 部署与配置
-    url: https://github.com/alex-ai-dev-lab/rillven/blob/main/docs/deploy.md
+    url: https://github.com/alex-ai-dev-lab/Rillven/blob/main/docs/deploy.md
     about: 下载、初始化、升级和配置问题请先查阅当前仓库的部署说明。
