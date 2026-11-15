@@ -50,6 +50,7 @@ type ChannelSettings struct {
 	ForceFormat            bool   `json:"force_format,omitempty"`
 	ThinkingToContent      bool   `json:"thinking_to_content,omitempty"`
 	Proxy                  string `json:"proxy"`
+	EgressPolicy           string `json:"egress_policy,omitempty"`
 	TLSInsecureSkipVerify  bool   `json:"tls_insecure_skip_verify,omitempty"`
 	PassThroughBodyEnabled bool   `json:"pass_through_body_enabled,omitempty"`
 	SystemPrompt           string `json:"system_prompt,omitempty"`
@@ -62,6 +63,14 @@ type ChannelSettings struct {
 	// User-Agent settings
 	UserAgentID       *int   `json:"user_agent_id,omitempty"`       // UA from user_agents table
 	UserAgentOverride string `json:"user_agent_override,omitempty"` // Custom UA string
+	// Empty inherits the global scope. Per-channel identities require durable state keys.
+	ClientIdentityMode string `json:"client_identity_mode,omitempty"`
+	ClientProfile      string `json:"client_profile,omitempty"` // inherit, codex, claude
+	ClientVersion      string `json:"client_version,omitempty"`
+	// Recovery settings are opt-in so existing conversations retain their contract.
+	ConversationRecovery string `json:"conversation_recovery,omitempty"` // off, shadow, managed
+	StreamCommitMode     string `json:"stream_commit_mode,omitempty"`    // realtime, atomic_turn
+	UpstreamCoordination bool   `json:"upstream_coordination,omitempty"`
 
 	// Upstream error normalization. When nil, the global setting decides.
 	NormalizeUpstreamErrors *bool `json:"normalize_upstream_errors,omitempty"`
@@ -135,10 +144,51 @@ func (s *ChannelSettings) ValidateHTTPTransport() error {
 	if s == nil {
 		return nil
 	}
+	for _, setting := range []struct {
+		value   string
+		allowed []string
+	}{
+		{s.ClientIdentityMode, []string{"", "inherit", "legacy", "disabled", "per_channel", "shadow"}},
+		{s.ClientProfile, []string{"", "inherit", "codex", "claude"}},
+		{s.ConversationRecovery, []string{"", "off", "shadow", "managed"}},
+		{s.StreamCommitMode, []string{"", "realtime", "atomic_turn"}},
+	} {
+		valid := false
+		for _, allowed := range setting.allowed {
+			if setting.value == allowed {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("invalid client identity or conversation recovery setting")
+		}
+	}
+	if len(s.ClientVersion) > 32 {
+		return fmt.Errorf("client version exceeds 32 characters")
+	}
+	for _, char := range s.ClientVersion {
+		if !(char >= '0' && char <= '9' || char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char == '.' || char == '-') {
+			return fmt.Errorf("invalid client version")
+		}
+	}
 	switch s.ResponsesRequestProfile {
 	case "", "auto", "responses", "codex":
 	default:
 		return fmt.Errorf("invalid responses_request_profile: %s", s.ResponsesRequestProfile)
+	}
+	switch s.EgressPolicy {
+	case "", "inherit":
+	case "proxy":
+		if strings.TrimSpace(s.Proxy) == "" {
+			return fmt.Errorf("proxy egress requires an explicit proxy URL")
+		}
+	case "direct":
+		if strings.TrimSpace(s.Proxy) != "" {
+			return fmt.Errorf("direct egress cannot include a proxy URL")
+		}
+	default:
+		return fmt.Errorf("invalid egress policy")
 	}
 	protocol := strings.ToLower(strings.TrimSpace(s.HTTPProtocol))
 	switch protocol {

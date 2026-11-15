@@ -140,6 +140,9 @@ func effectiveResponsesBridgeTools(toolsRaw, inputRaw json.RawMessage) ([]any, a
 }
 
 func flattenResponsesNamespaceTools(tools []any) ([]any, ResponsesBridgeToolMapping, error) {
+	if err := ValidateResponsesToolShape(tools); err != nil {
+		return nil, ResponsesBridgeToolMapping{}, err
+	}
 	mapping := ResponsesBridgeToolMapping{NamespaceTools: make(map[string]ResponsesNamespaceToolName)}
 	declared := make(map[string]bool)
 	for _, raw := range tools {
@@ -167,12 +170,15 @@ func flattenResponsesNamespaceTools(tools []any) ([]any, ResponsesBridgeToolMapp
 	for _, raw := range tools {
 		tool := raw.(map[string]any)
 		typ := strings.TrimSpace(common.Interface2String(tool["type"]))
+		if deferred, _ := tool["defer_loading"].(bool); deferred {
+			return nil, ResponsesBridgeToolMapping{}, unsupportedProtocolConversion("Responses deferred tools require a compatible native protocol")
+		}
 		if typ == "" || typ == "function" {
 			flattened = append(flattened, tool)
 			continue
 		}
 		if typ != "namespace" {
-			return nil, ResponsesBridgeToolMapping{}, fmt.Errorf("Responses tool type %q is not supported by the safe text bridge", typ)
+			return nil, ResponsesBridgeToolMapping{}, unsupportedProtocolConversion("Responses tool type %q is not supported by the safe text bridge", typ)
 		}
 		namespace := strings.TrimSpace(common.Interface2String(tool["name"]))
 		if namespace == "" {
@@ -185,7 +191,10 @@ func flattenResponsesNamespaceTools(tools []any) ([]any, ResponsesBridgeToolMapp
 		for _, childRaw := range children {
 			child, ok := childRaw.(map[string]any)
 			if !ok || strings.TrimSpace(common.Interface2String(child["type"])) != "function" {
-				return nil, ResponsesBridgeToolMapping{}, fmt.Errorf("Responses namespace %q contains a non-function tool", namespace)
+				return nil, ResponsesBridgeToolMapping{}, unsupportedProtocolConversion("Responses namespace %q contains a non-function tool", namespace)
+			}
+			if deferred, _ := child["defer_loading"].(bool); deferred {
+				return nil, ResponsesBridgeToolMapping{}, unsupportedProtocolConversion("Responses deferred tools require a compatible native protocol")
 			}
 			name := strings.TrimSpace(common.Interface2String(child["name"]))
 			if name == "" {

@@ -66,6 +66,7 @@ type ResponsesUsageInfo struct {
 type ChannelMeta struct {
 	ChannelType          int
 	ChannelId            int
+	ChannelConfigVersion int64
 	ChannelIsMultiKey    bool
 	ChannelMultiKeyIndex int
 	ChannelBaseUrl       string
@@ -109,6 +110,7 @@ type RelayInfo struct {
 	UserGroup                   string // 用户所在分组
 	TokenUnlimited              bool
 	StartTime                   time.Time
+	AttemptStartedAt            time.Time
 	FirstResponseTime           time.Time
 	FirstSemanticTimeoutSeconds int
 	isFirstResponse             bool
@@ -154,7 +156,10 @@ type RelayInfo struct {
 	ForcePreConsume bool
 	// Billing 是计费会话，封装了预扣费/结算/退款的统一生命周期。
 	// 免费模型时为 nil。
-	Billing BillingSettler
+	Billing           BillingSettler
+	Conversation      ManagedConversation
+	SettlementError   error
+	SettlementStarted bool
 	// BillingSource indicates whether this request is billed from wallet quota or subscription.
 	// "" or "wallet" => wallet; "subscription" => subscription
 	BillingSource string
@@ -281,6 +286,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	channelMeta := &ChannelMeta{
 		ChannelType:          channelType,
 		ChannelId:            common.GetContextKeyInt(c, constant.ContextKeyChannelId),
+		ChannelConfigVersion: c.GetInt64("selected_channel_config_version"),
 		ChannelIsMultiKey:    common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey),
 		ChannelMultiKeyIndex: common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex),
 		ChannelBaseUrl:       common.GetContextKeyString(c, constant.ContextKeyChannelBaseUrl),

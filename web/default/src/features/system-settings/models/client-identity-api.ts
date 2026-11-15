@@ -56,6 +56,7 @@ export interface GenericIdentityConfig {
 }
 
 export interface ClientIdentitySetting {
+  scope?: 'legacy' | 'per_channel' | 'shadow' | 'disabled'
   enabled: boolean
   apply_to_all_openai_responses: boolean
   apply_to_all_claude_messages: boolean
@@ -65,9 +66,10 @@ export interface ClientIdentitySetting {
 }
 
 async function fetchClientIdentitySetting(): Promise<ClientIdentitySetting> {
-  const response = await api.get<{ success: boolean; data: ClientIdentitySetting }>(
-    '/api/option/client_identity'
-  )
+  const response = await api.get<{
+    success: boolean
+    data: ClientIdentitySetting
+  }>('/api/option/client_identity')
   return response.data.data
 }
 

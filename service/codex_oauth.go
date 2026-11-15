@@ -5,9 +5,9 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -48,11 +48,20 @@ func RefreshCodexOAuthTokenWithProxy(ctx context.Context, refreshToken string, p
 }
 
 func RefreshCodexOAuthTokenWithOptions(ctx context.Context, refreshToken string, options HTTPClientOptions) (*CodexOAuthTokenResult, error) {
+	return refreshCodexOAuthTokenWithCheck(ctx, refreshToken, options)
+}
+
+func refreshCodexOAuthTokenWithCheck(ctx context.Context, refreshToken string, options HTTPClientOptions, beforeSend ...func() error) (*CodexOAuthTokenResult, error) {
+	if strings.TrimSpace(refreshToken) == "" {
+		return nil, errors.New("empty refresh_token")
+	}
 	client, err := getCodexOAuthHTTPClient(options)
 	if err != nil {
 		return nil, err
 	}
-	return refreshCodexOAuthToken(ctx, client, codexOAuthTokenURL, codexOAuthClientID, refreshToken)
+	return withCodexRefreshJournal(ctx, strings.TrimSpace(refreshToken), func() (*CodexOAuthTokenResult, error) {
+		return refreshCodexOAuthToken(ctx, client, codexOAuthTokenURL, codexOAuthClientID, refreshToken)
+	}, beforeSend...)
 }
 
 func ExchangeCodexAuthorizationCode(ctx context.Context, code string, verifier string) (*CodexOAuthTokenResult, error) {
@@ -124,11 +133,19 @@ func refreshCodexOAuthToken(
 		ExpiresIn    int    `json:"expires_in"`
 	}
 
-	if err := common.DecodeJson(resp.Body, &payload); err != nil {
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("codex oauth refresh failed: status=%d", resp.StatusCode)
+		var rejected struct {
+			Error string `json:"error"`
+		}
+		_ = common.Unmarshal(data, &rejected)
+		return nil, &CodexOAuthError{Status: resp.StatusCode, NeedsLogin: rejected.Error == "invalid_grant" || rejected.Error == "unauthorized_client" || rejected.Error == "invalid_client"}
+	}
+	if err := common.Unmarshal(data, &payload); err != nil {
+		return nil, err
 	}
 
 	if strings.TrimSpace(payload.AccessToken) == "" || strings.TrimSpace(payload.RefreshToken) == "" || payload.ExpiresIn <= 0 {
@@ -207,7 +224,7 @@ func getCodexOAuthHTTPClient(options HTTPClientOptions) (*http.Client, error) {
 		return nil, err
 	}
 	if baseClient == nil {
-		return &http.Client{Timeout: defaultHTTPTimeout}, nil
+		return nil, errors.New("OAuth HTTP client unavailable")
 	}
 	clientCopy := *baseClient
 	clientCopy.Timeout = defaultHTTPTimeout
@@ -314,7 +331,7 @@ func decodeJWTClaims(token string) (map[string]any, bool) {
 		return nil, false
 	}
 	var claims map[string]any
-	if err := json.Unmarshal(payloadRaw, &claims); err != nil {
+	if err := common.Unmarshal(payloadRaw, &claims); err != nil {
 		return nil, false
 	}
 	return claims, true

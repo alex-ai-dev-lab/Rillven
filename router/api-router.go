@@ -310,6 +310,8 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.GET("/:id/model_endpoints", controller.GetChannelModelEndpoints)
 			channelRoute.GET("/:id/model_route_preview", controller.PreviewChannelModelRoute)
 			channelRoute.GET("/:id/config_audits", controller.GetChannelConfigAudits)
+			channelRoute.POST("/:id/client_identity/preview", middleware.RootAuth(), controller.PreviewChannelIdentity)
+			channelRoute.PUT("/:id/client_identity", middleware.RootAuth(), controller.UpdateChannelIdentity)
 			channelRoute.GET("/:id/capabilities", controller.GetChannelModelCapabilities)
 			channelRoute.POST("/:id/capabilities/responses-compaction/probe", middleware.RootAuth(), middleware.CriticalRateLimit(), controller.ProbeChannelResponsesCompactionCapability)
 			channelRoute.POST("/:id/model_endpoints", controller.UpdateChannelModelEndpoints)

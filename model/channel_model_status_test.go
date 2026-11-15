@@ -87,6 +87,26 @@ func TestChannelModelSuccessRestoresAutoDisabledStatus(t *testing.T) {
 	require.Equal(t, 0, status.FailureCount)
 }
 
+func TestChannelModelLateSuccessPreservesNewerCooldown(t *testing.T) {
+	setupChannelModelStatusTestDB(t)
+	require.NoError(t, UpsertChannelModelFailure(ChannelModelFailureUpdate{
+		ChannelId: 89, Group: "default", ModelName: "test", AutoDisableEligible: true, FailureThreshold: 1, CooldownSeconds: 600,
+	}))
+	failed, err := GetChannelModelStatus(89, "default", "test")
+	require.NoError(t, err)
+	for _, started := range []int64{failed.UpdatedTime - 1, failed.UpdatedTime} {
+		require.NoError(t, RecordChannelModelSuccess(ChannelModelSuccessUpdate{ChannelId: 89, Group: "default", ModelName: "test", StartedAt: started}))
+		current, err := GetChannelModelStatus(89, "default", "test")
+		require.NoError(t, err)
+		require.Equal(t, failed.DisabledUntil, current.DisabledUntil)
+		require.Equal(t, common.ChannelStatusAutoDisabled, current.Status)
+	}
+	require.NoError(t, RecordChannelModelSuccess(ChannelModelSuccessUpdate{ChannelId: 89, Group: "default", ModelName: "test", StartedAt: failed.UpdatedTime + 1}))
+	current, err := GetChannelModelStatus(89, "default", "test")
+	require.NoError(t, err)
+	require.Equal(t, common.ChannelStatusEnabled, current.Status)
+}
+
 func TestChannelModelFailureDoesNotOverrideManualDisable(t *testing.T) {
 	setupChannelModelStatusTestDB(t)
 

@@ -1,7 +1,7 @@
 package model
 
 import (
-	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 
@@ -11,6 +11,7 @@ import (
 
 // ClientIdentitySetting 客户端标识符管理配置
 type ClientIdentitySetting struct {
+	Scope                     string                  `json:"scope,omitempty"` // legacy, per_channel, shadow, disabled
 	Enabled                   bool                    `json:"enabled"`
 	ApplyToAllOpenAIResponses bool                    `json:"apply_to_all_openai_responses"`
 	ApplyToAllClaudeMessages  bool                    `json:"apply_to_all_claude_messages"`
@@ -87,7 +88,7 @@ func GetClientIdentitySetting() ClientIdentitySetting {
 	}
 
 	var setting ClientIdentitySetting
-	if err := json.Unmarshal([]byte(value), &setting); err != nil {
+	if err := common.Unmarshal([]byte(value), &setting); err != nil {
 		common.SysLog("client identity setting JSON invalid, using defaults: " + err.Error())
 		setting = getDefaultClientIdentitySetting()
 		_ = saveClientIdentitySetting(setting)
@@ -178,7 +179,7 @@ func normalizeClientIdentitySetting(s ClientIdentitySetting) ClientIdentitySetti
 
 // saveClientIdentitySetting 保存配置到数据库
 func saveClientIdentitySetting(setting ClientIdentitySetting) error {
-	data, err := json.Marshal(setting)
+	data, err := common.Marshal(setting)
 	if err != nil {
 		return err
 	}
@@ -187,6 +188,15 @@ func saveClientIdentitySetting(setting ClientIdentitySetting) error {
 
 // UpdateClientIdentitySetting 更新客户端标识符配置
 func UpdateClientIdentitySetting(setting ClientIdentitySetting) error {
+	switch setting.Scope {
+	case "", "legacy", "disabled":
+	case "per_channel", "shadow":
+		if _, err := common.RelayStateCipher(); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("invalid client identity scope")
+	}
 	setting = normalizeClientIdentitySetting(setting)
 	return saveClientIdentitySetting(setting)
 }

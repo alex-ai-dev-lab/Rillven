@@ -2,6 +2,7 @@ package service
 
 import (
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -24,7 +25,7 @@ type ChannelModelFailureParams struct {
 	ForceDisabled bool
 }
 
-func RecordChannelModelSuccess(channelID int, group, modelName, endpoint, requestID string) {
+func RecordChannelModelSuccess(channelID int, group, modelName, endpoint, requestID string, started ...time.Time) {
 	modelName = strings.TrimSpace(modelName)
 	if channelID <= 0 || modelName == "" {
 		return
@@ -32,7 +33,12 @@ func RecordChannelModelSuccess(channelID int, group, modelName, endpoint, reques
 	if common.MemoryCacheEnabled && !model.HasChannelModelStatusCached(channelID, group, modelName) {
 		return
 	}
+	startedAt := int64(0)
+	if len(started) > 0 && !started[0].IsZero() {
+		startedAt = started[0].Unix()
+	}
 	_ = model.RecordChannelModelSuccess(model.ChannelModelSuccessUpdate{
+		StartedAt:     startedAt,
 		ChannelId:     channelID,
 		Group:         group,
 		ModelName:     modelName,
@@ -43,7 +49,7 @@ func RecordChannelModelSuccess(channelID int, group, modelName, endpoint, reques
 
 func RecordChannelModelFailure(params ChannelModelFailureParams) {
 	params.ModelName = strings.TrimSpace(params.ModelName)
-	if params.ChannelId <= 0 || params.ModelName == "" || params.Error == nil || IsInvalidEncryptedReasoningError(params.Error) || types.IsRequestProtocolUnsupportedError(params.Error) {
+	if params.ChannelId <= 0 || params.ModelName == "" || params.Error == nil || types.IsGatewayCoordinationError(params.Error) || IsInvalidEncryptedReasoningError(params.Error) || types.IsRequestProtocolUnsupportedError(params.Error) {
 		return
 	}
 	if !IsRelayFailoverError(params.Error) {

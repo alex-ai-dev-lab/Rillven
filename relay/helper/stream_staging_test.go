@@ -1,13 +1,17 @@
 package helper
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
@@ -47,6 +51,54 @@ func TestStreamStagingCommitsOnlySemanticOutput(t *testing.T) {
 				return nil
 			})
 			require.Nil(t, err)
+		})
+	}
+}
+
+func TestAtomicTurnSelectedSettingsAndFailureCapacity(t *testing.T) {
+	for _, failure := range []string{"none", "limit", "global", "malformed", "cancel"} {
+		t.Run(failure, func(t *testing.T) {
+			r := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(r)
+			c.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+			common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{StreamCommitMode: "atomic_turn"})
+			before := streamBufferBytes.Load()
+			err := WithStreamStaging(c, &relaycommon.RelayInfo{IsStream: true}, func() *types.NewAPIError {
+				SetEventStreamHeaders(c)
+				require.NoError(t, StringData(c, `{"type":"response.output_text.delta","delta":"hello"}`))
+				require.Empty(t, r.Body.String(), "first attempt must use selected channel's atomic setting")
+				w := c.Writer.(*streamStagingWriter)
+				switch failure {
+				case "limit", "global":
+					if failure == "limit" {
+						w.bufferLimit = 100
+					} else {
+						w.globalLimit = 100
+					}
+					require.Error(t, StringData(c, `{"type":"response.output_text.delta","delta":"`+strings.Repeat("a", 200)+`"}`))
+					return types.NewError(errors.New("adapter write failed"), types.ErrorCodeBadResponse)
+				case "malformed":
+					require.Error(t, StringData(c, `not-json`))
+					return nil
+				case "cancel":
+					return types.NewError(context.Canceled, types.ErrorCodeBadResponse, types.ErrOptionWithSkipRetry())
+				}
+				require.NoError(t, StringData(c, `{"type":"response.completed"}`))
+				return nil
+			})
+			if failure == "none" {
+				require.Nil(t, err)
+				require.Contains(t, r.Body.String(), "hello")
+			} else {
+				require.NotNil(t, err)
+				require.Empty(t, r.Body.String())
+			}
+			if failure == "limit" || failure == "global" {
+				require.True(t, types.IsLocalRelayRejection(err))
+				require.True(t, types.IsSkipRetryError(err))
+				require.Equal(t, types.ErrorCodeResponseBufferUnavailable, err.GetErrorCode())
+			}
+			require.Equal(t, before, streamBufferBytes.Load(), "every outcome releases reserved capacity")
 		})
 	}
 }

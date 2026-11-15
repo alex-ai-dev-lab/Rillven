@@ -115,10 +115,34 @@ func SettleBillingAndInsertMidjourney(ctx *gin.Context, relayInfo *relaycommon.R
 // SettleBilling 执行计费结算。如果 RelayInfo 上有 BillingSession 则通过 session 结算，
 // 否则回退到旧的 PostConsumeQuota 路径（兼容按次计费等场景）。
 func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuota int) (settleErr error) {
-	if ctx != nil && ctx.Request != nil {
-		if execution := relaycommon.GetResponsesWSExecution(ctx.Request.Context()); execution != nil {
-			defer func() { execution.SettlementError = settleErr }()
+	defer func() {
+		relayInfo.SettlementError = settleErr
+		if ctx != nil && ctx.Request != nil {
+			if execution := relaycommon.GetResponsesWSExecution(ctx.Request.Context()); execution != nil {
+				execution.SettlementError = settleErr
+			}
 		}
+	}()
+	if ctx != nil {
+		if finalizer, ok := ctx.Writer.(relaycommon.ResponseFinalizer); ok {
+			if err := finalizer.FinalizeResponse(); err != nil {
+				return err
+			}
+		}
+	}
+	if relayInfo.Conversation != nil {
+		var ledgerID uint64
+		if session, ok := relayInfo.Billing.(*BillingSession); ok {
+			ledgerID = session.ledgerID
+		}
+		if err := relayInfo.Conversation.PrepareCommit(actualQuota, ledgerID); err != nil {
+			return err
+		}
+		defer func() {
+			if settleErr == nil {
+				settleErr = relayInfo.Conversation.PublishCommit()
+			}
+		}()
 	}
 	if relayInfo.Billing != nil {
 		preConsumed := relayInfo.Billing.GetPreConsumedQuota()
@@ -142,6 +166,7 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 			))
 		}
 
+		relayInfo.SettlementStarted = true
 		if err := relayInfo.Billing.Settle(actualQuota); err != nil {
 			return err
 		}
@@ -159,6 +184,7 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 
 	// 回退：无 BillingSession 时使用旧路径
 	quotaDelta := actualQuota - relayInfo.FinalPreConsumedQuota
+	relayInfo.SettlementStarted = true
 	if quotaDelta != 0 {
 		return PostConsumeQuota(relayInfo, quotaDelta, relayInfo.FinalPreConsumedQuota, true)
 	}

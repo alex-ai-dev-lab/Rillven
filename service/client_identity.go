@@ -22,6 +22,7 @@ func ApplyClientIdentityToRequest(path string, headers http.Header, body []byte)
 
 type ClientIdentityOptions struct {
 	ForceCodexIdentity bool
+	Profile            *AttemptClientProfile
 }
 
 // ApplyClientIdentityToRequestWithOptions applies client identifiers to the
@@ -29,6 +30,20 @@ type ClientIdentityOptions struct {
 // upstreams that require Codex client metadata even when the incoming endpoint
 // is /v1/chat/completions.
 func ApplyClientIdentityToRequestWithOptions(path string, headers http.Header, body []byte, options ClientIdentityOptions) ([]byte, bool, error) {
+	if p := options.Profile; p != nil && p.Mode != "shadow" {
+		if p.Mode == "disabled" || p.Provider == "" {
+			return body, false, nil
+		}
+		var payload map[string]any
+		if common.Unmarshal(body, &payload) != nil || payload == nil {
+			return nil, false, fmt.Errorf("invalid JSON for scoped client identity")
+		}
+		if err := applyScopedClientIdentity(headers, payload, p); err != nil {
+			return nil, false, err
+		}
+		encoded, err := common.Marshal(payload)
+		return encoded, true, err
+	}
 	setting := model.GetClientIdentitySetting()
 	if !setting.Enabled {
 		return body, false, nil
@@ -407,7 +422,8 @@ func ApplyClientIdentityToRequestBodyWithOptions(path string, headers http.Heade
 }
 
 func ApplyClientIdentityToRequestBytesWithOptions(path string, headers http.Header, body []byte, options ClientIdentityOptions) ([]byte, http.Header, error) {
-	originalHeaders := headers.Clone()
+	originalHeaders := headers
+	headers = headers.Clone()
 	modified, changed, err := ApplyClientIdentityToRequestWithOptions(path, headers, body, options)
 	if err != nil || !changed {
 		modified = body

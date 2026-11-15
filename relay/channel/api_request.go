@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	defaultCodexCLIUserAgent  = "codex-cli_rs/0.59.0"
-	defaultClaudeCLIUserAgent = "claude-cli/2.1.80 (external, cli)"
+	defaultCodexCLIUserAgent  = service.DefaultCodexCLIUserAgent
+	defaultClaudeCLIUserAgent = service.DefaultClaudeCLIUserAgent
 )
 
 // applyUpstreamContentLength populates req.ContentLength when the upstream
@@ -635,15 +635,23 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		}
 		finalBody = normalized
 	}
+	profile, profileErr := service.ResolveAttemptClientProfile(c, info, identityPath, finalBody, shouldForceCodexIdentity(info, fullRequestURL))
+	if profileErr != nil {
+		return nil, fmt.Errorf("resolve channel client identity: %w", profileErr)
+	}
 	processedBody, identityHeaders, identityErr := service.ApplyClientIdentityToRequestBytesWithOptions(
 		identityPath,
 		c.Request.Header,
 		finalBody,
 		service.ClientIdentityOptions{
 			ForceCodexIdentity: shouldForceCodexIdentity(info, fullRequestURL),
+			Profile:            profile,
 		},
 	)
 	if identityErr != nil {
+		if profile != nil && profile.Mode == "per_channel" {
+			return nil, identityErr
+		}
 		logger.LogError(c, fmt.Sprintf("client identity injection failed: %s", identityErr.Error()))
 	} else {
 		finalBody = processedBody
@@ -684,6 +692,13 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	applyManagedUpstreamUserAgent(req, info)
 	applyHeaderPatchToRequest(req, identityHeaders)
 	applyHeaderRules(req, info)
+	// The selected profile owns identity fields. Later generic header rules must
+	// not make the headers disagree with the body or reuse a different session.
+	if profile != nil && profile.Mode == "per_channel" {
+		if err := service.EnforceAttemptIdentityHeaders(req.Header, profile); err != nil {
+			return nil, err
+		}
+	}
 	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)
@@ -916,6 +931,7 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	}
 
 	service.CaptureUpstreamRequestID(c, resp.Header)
+	service.ObserveUpstreamQuotaHeaders(c.Request.Context(), info, resp.Header)
 
 	if req.Body != nil {
 		_ = req.Body.Close()

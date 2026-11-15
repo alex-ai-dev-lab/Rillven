@@ -74,6 +74,7 @@ import {
 } from './client-identity-api'
 
 const DEFAULT_SETTING: ClientIdentitySetting = {
+  scope: 'legacy',
   enabled: true,
   apply_to_all_openai_responses: false,
   apply_to_all_claude_messages: false,
@@ -105,9 +106,9 @@ type ClientIdentityImportExportPayload = Partial<ClientIdentitySetting> & {
   ClientIdentity?: Partial<ClientIdentitySetting>
 }
 
-const toObject = (value: unknown): Record<string, any> =>
+const toObject = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, any>)
+    ? (value as Record<string, unknown>)
     : {}
 
 const toBoolean = (value: unknown, fallback: boolean) =>
@@ -166,6 +167,11 @@ function normalizeClientIdentityImport(
     : current.generic
 
   return {
+    scope: ['legacy', 'per_channel', 'shadow', 'disabled'].includes(
+      String(payload.scope)
+    )
+      ? (payload.scope as ClientIdentitySetting['scope'])
+      : current.scope,
     enabled: toBoolean(payload.enabled, current.enabled),
     apply_to_all_openai_responses: toBoolean(
       payload.apply_to_all_openai_responses,
@@ -328,9 +334,7 @@ export function ClientIdentitySettingsCard() {
       const normalized = normalizeClientIdentityImport(raw, form.getValues())
       form.reset(normalized)
       setImportOpen(false)
-      toast.success(
-        '客户端标识配置已导入，点击“保存设置”后生效。'
-      )
+      toast.success('客户端标识配置已导入，点击“保存设置”后生效。')
     } catch {
       toast.error('客户端标识 JSON 无效')
     }
@@ -340,8 +344,8 @@ export function ClientIdentitySettingsCard() {
     try {
       await updateMutation.mutateAsync(data)
       toast.success('客户端标识设置已保存')
-    } catch (error: any) {
-      toast.error(error.message || '保存设置失败')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '保存设置失败')
     }
   }
 
@@ -350,8 +354,8 @@ export function ClientIdentitySettingsCard() {
       const newId = await generateCodexMutation.mutateAsync()
       form.setValue('codex.installation_id', newId)
       toast.success('已生成新的 Codex 安装 ID')
-    } catch (error: any) {
-      toast.error(error.message || '生成 ID 失败')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '生成 ID 失败')
     }
   }
 
@@ -359,8 +363,8 @@ export function ClientIdentitySettingsCard() {
     try {
       await rotateCodexMutation.mutateAsync()
       toast.success('Codex 安装 ID 已轮换')
-    } catch (error: any) {
-      toast.error(error.message || '轮换 ID 失败')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '轮换 ID 失败')
     }
   }
 
@@ -369,8 +373,8 @@ export function ClientIdentitySettingsCard() {
       const newId = await generateClaudeMutation.mutateAsync()
       form.setValue('claude.device_id', newId)
       toast.success('已生成新的 Claude 设备 ID')
-    } catch (error: any) {
-      toast.error(error.message || '生成 ID 失败')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '生成 ID 失败')
     }
   }
 
@@ -378,8 +382,8 @@ export function ClientIdentitySettingsCard() {
     try {
       await rotateClaudeMutation.mutateAsync()
       toast.success('Claude 设备 ID 已轮换')
-    } catch (error: any) {
-      toast.error(error.message || '轮换 ID 失败')
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : '轮换 ID 失败')
     }
   }
 
@@ -433,9 +437,9 @@ export function ClientIdentitySettingsCard() {
         <Alert>
           <Info className='h-4 w-4' />
           <AlertDescription>
-            客户端标识管理用于在转发给上游服务商前注入或替换设备/安装标识，
-            让 Codex、Claude 等要求固定标识的渠道保持稳定，避免因缺少标识触发
-            403 等鉴权限制。
+            客户端标识管理用于在转发给上游服务商前注入或替换设备/安装标识， 让
+            Codex、Claude 等要求固定标识的渠道保持稳定，避免因缺少标识触发 403
+            等鉴权限制。
           </AlertDescription>
         </Alert>
 
@@ -443,11 +447,42 @@ export function ClientIdentitySettingsCard() {
         <Card>
           <CardHeader>
             <CardTitle>全局设置</CardTitle>
-            <CardDescription>
-              控制客户端标识注入的总开关
-            </CardDescription>
+            <CardDescription>控制客户端标识注入的总开关</CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
+            <FormField
+              control={form.control}
+              name='scope'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>默认身份作用域</FormLabel>
+                  <Select
+                    value={field.value || 'legacy'}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value='per_channel'>
+                        每渠道独立身份
+                      </SelectItem>
+                      <SelectItem value='shadow'>
+                        观察独立身份，保留旧出站行为
+                      </SelectItem>
+                      <SelectItem value='legacy'>兼容旧全局身份</SelectItem>
+                      <SelectItem value='disabled'>不注入身份</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    每渠道模式使用各渠道持久设备和独立会话；下方固定 ID
+                    与定时轮换仅用于旧全局模式。独立身份需要配置状态加密密钥。
+                  </FormDescription>
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name='enabled'
@@ -474,12 +509,10 @@ export function ClientIdentitySettingsCard() {
               render={({ field }) => (
                 <FormItem className='flex items-center justify-between'>
                   <div className='space-y-0.5'>
-                    <FormLabel>
-                      应用于所有 OpenAI Responses 请求
-                    </FormLabel>
+                    <FormLabel>应用于所有 OpenAI Responses 请求</FormLabel>
                     <FormDescription>
-                      对每个 /v1/responses 请求强制写入 Codex 安装 ID，
-                      即使 User-Agent 不是 Codex。
+                      对每个 /v1/responses 请求强制写入 Codex 安装 ID， 即使
+                      User-Agent 不是 Codex。
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -499,7 +532,8 @@ export function ClientIdentitySettingsCard() {
                   <div className='space-y-0.5'>
                     <FormLabel>应用于所有 Claude Messages 请求</FormLabel>
                     <FormDescription>
-                      对每个 /v1/messages 请求强制写入 Claude 设备 ID 和会话 ID。
+                      对每个 /v1/messages 请求强制写入 Claude 设备 ID 和会话
+                      ID。
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -581,10 +615,7 @@ export function ClientIdentitySettingsCard() {
                   <FormLabel>安装 ID</FormLabel>
                   <div className='flex gap-2'>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder='留空时自动生成 UUID'
-                      />
+                      <Input {...field} placeholder='留空时自动生成 UUID' />
                     </FormControl>
                     <Button
                       type='button'
@@ -623,9 +654,7 @@ export function ClientIdentitySettingsCard() {
                   <FormItem className='flex items-center justify-between'>
                     <div className='space-y-0.5'>
                       <FormLabel>启用轮换</FormLabel>
-                      <FormDescription>
-                        按计划自动生成新的 ID。
-                      </FormDescription>
+                      <FormDescription>按计划自动生成新的 ID。</FormDescription>
                     </div>
                     <FormControl>
                       <Switch
@@ -702,8 +731,7 @@ export function ClientIdentitySettingsCard() {
           <CardHeader>
             <CardTitle>Claude Code / Claude CLI</CardTitle>
             <CardDescription>
-              管理{' '}
-              <code className='text-xs'>metadata.user_id.device_id</code>
+              管理 <code className='text-xs'>metadata.user_id.device_id</code>
             </CardDescription>
           </CardHeader>
           <CardContent className='space-y-4'>
@@ -759,10 +787,7 @@ export function ClientIdentitySettingsCard() {
                   <FormLabel>设备 ID</FormLabel>
                   <div className='flex gap-2'>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder='留空时自动生成 UUID'
-                      />
+                      <Input {...field} placeholder='留空时自动生成 UUID' />
                     </FormControl>
                     <Button
                       type='button'
@@ -809,7 +834,8 @@ export function ClientIdentitySettingsCard() {
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    强制全局值会把请求中的 session_id 替换为 renewapi 后台配置值。
+                    强制全局值会把请求中的 session_id 替换为 renewapi
+                    后台配置值。
                   </FormDescription>
                 </FormItem>
               )}
@@ -822,10 +848,7 @@ export function ClientIdentitySettingsCard() {
                   <FormLabel>固定会话 ID</FormLabel>
                   <div className='flex gap-2'>
                     <FormControl>
-                      <Input
-                        {...field}
-                        placeholder='留空时自动生成 UUID'
-                      />
+                      <Input {...field} placeholder='留空时自动生成 UUID' />
                     </FormControl>
                     <Button
                       type='button'
@@ -1070,7 +1093,9 @@ export function ClientIdentitySettingsCard() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value='body_json'>JSON 请求体</SelectItem>
+                            <SelectItem value='body_json'>
+                              JSON 请求体
+                            </SelectItem>
                             <SelectItem value='header'>请求头</SelectItem>
                           </SelectContent>
                         </Select>

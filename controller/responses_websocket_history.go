@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/tidwall/gjson"
 )
 
@@ -128,6 +129,11 @@ func (h *responsesWSHistory) prepare(body []byte) ([]byte, []json.RawMessage, st
 		}
 	}
 	replayable := true
+	// Gateway IDs are resolved by the authenticated shared middleware, including
+	// after a reconnect. Expanding them here would lose the durable parent edge.
+	if len(previous) >= len(service.ManagedResponsePrefix) && previous[:len(service.ManagedResponsePrefix)] == service.ManagedResponsePrefix {
+		return body, input, previous, false, nil
+	}
 	if previous != "" {
 		h.mu.Lock()
 		parent, found := h.items[previous]

@@ -63,7 +63,8 @@ func IsLocalRelayRejection(err *NewAPIError) bool {
 		return false
 	}
 	switch err.GetErrorCode() {
-	case ErrorCodeRequestProtocolUnsupported, ErrorCodeInvalidRequest, ErrorCodeReadRequestBodyFailed, ErrorCodeBadRequestBody,
+	case ErrorCodeUpstreamAdmissionUnavailable, ErrorCodeResponseBufferUnavailable, ErrorCodeBillingCommitUnavailable, ErrorCodeConversationContextUnavailable, ErrorCodeConversationStoreUnavailable,
+		ErrorCodeRequestProtocolUnsupported, ErrorCodeInvalidRequest, ErrorCodeReadRequestBodyFailed, ErrorCodeBadRequestBody,
 		ErrorCodeAccessDenied, ErrorCodeInsufficientUserQuota, ErrorCodePreConsumeTokenQuotaFailed,
 		ErrorCodeModelPriceError, ErrorCodeRateLimitExceeded, ErrorCodeConvertRequestFailed,
 		ErrorCodeRequestGuardBlocked, ErrorCodeRequestGuardUnavailable,

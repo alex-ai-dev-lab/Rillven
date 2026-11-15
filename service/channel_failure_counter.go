@@ -134,11 +134,14 @@ func PeekChannelConsecutiveFailure(channelID int, model string) int {
 
 // ClearChannelConsecutiveFailure resets the consecutive failure counter for the
 // given channel+model, typically after a successful request.
-func ClearChannelConsecutiveFailure(channelID int, model string) {
+func ClearChannelConsecutiveFailure(channelID int, model string, started ...time.Time) {
 	if channelID <= 0 {
 		return
 	}
 	channelConsecutiveFailureTracker.Lock()
 	defer channelConsecutiveFailureTracker.Unlock()
+	if len(started) > 0 && !started[0].IsZero() && channelConsecutiveFailureTracker.items[channelConsecutiveFailureKey(channelID, model)].lastFailure.After(started[0]) {
+		return
+	}
 	delete(channelConsecutiveFailureTracker.items, channelConsecutiveFailureKey(channelID, model))
 }

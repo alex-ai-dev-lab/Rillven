@@ -157,6 +157,7 @@ func main() {
 	// Subscription quota reset task (daily/weekly/monthly/custom)
 	startWorker("subscription-reset", service.RunSubscriptionQuotaResetTask)
 	startWorker("billing-reconciler", service.RunBillingReconciler)
+	startWorker("conversation-maintenance", service.RunConversationMaintenance)
 
 	// Client identity rotation worker
 	startWorker("client-identity-rotation", service.RunClientIdentityRotationWorker)

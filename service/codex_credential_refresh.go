@@ -21,11 +21,33 @@ type CodexOAuthKey struct {
 	AccessToken  string `json:"access_token,omitempty"`
 	RefreshToken string `json:"refresh_token,omitempty"`
 
-	AccountID   string `json:"account_id,omitempty"`
-	LastRefresh string `json:"last_refresh,omitempty"`
-	Email       string `json:"email,omitempty"`
-	Type        string `json:"type,omitempty"`
-	Expired     string `json:"expired,omitempty"`
+	AccountID         string `json:"account_id,omitempty"`
+	LastRefresh       string `json:"last_refresh,omitempty"`
+	Email             string `json:"email,omitempty"`
+	Type              string `json:"type,omitempty"`
+	Expired           string `json:"expired,omitempty"`
+	IdentityPrincipal string `json:"identity_principal,omitempty"`
+}
+
+func codexCredentialSubject(key *CodexOAuthKey) (string, error) {
+	principal := key.IdentityPrincipal
+	if principal == "" {
+		principal = strings.ToLower(strings.TrimSpace(key.Email))
+	}
+	if principal == "" {
+		for _, token := range []string{key.IDToken, key.AccessToken} {
+			if claims, ok := decodeJWTClaims(token); ok {
+				if subject, ok := claims["sub"].(string); ok && subject != "" {
+					principal = subject
+					break
+				}
+			}
+		}
+	}
+	if key.AccountID == "" || principal == "" {
+		return "", errors.New("Codex account and principal are required for stable identity")
+	}
+	return key.AccountID + "\x00" + principal, nil
 }
 
 func parseCodexOAuthKey(raw string) (*CodexOAuthKey, error) {
@@ -50,6 +72,9 @@ func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts Code
 	if ch.Type != constant.ChannelTypeCodex {
 		return nil, nil, fmt.Errorf("channel type is not Codex")
 	}
+	if ch.ChannelInfo.IsMultiKey || !shouldAutoRefreshCodexChannelStatus(ch.Status) {
+		return nil, nil, errors.New("channel does not permit credential refresh")
+	}
 
 	oauthKey, err := parseCodexOAuthKey(strings.TrimSpace(ch.Key))
 	if err != nil {
@@ -58,14 +83,25 @@ func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts Code
 	if strings.TrimSpace(oauthKey.RefreshToken) == "" {
 		return nil, nil, fmt.Errorf("codex channel: refresh_token is required to refresh credential")
 	}
+	// Preserve the principal already used by device and conversation slots when
+	// refresh enriches a previously email-less credential with profile claims.
+	if subject, subjectErr := codexCredentialSubject(oauthKey); subjectErr == nil {
+		oauthKey.IdentityPrincipal = strings.TrimPrefix(subject, oauthKey.AccountID+"\x00")
+	}
 
 	refreshCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	setting := ch.GetSetting()
-	res, err := RefreshCodexOAuthTokenWithOptions(refreshCtx, oauthKey.RefreshToken, HTTPClientOptions{
-		Proxy:                 setting.Proxy,
-		TLSInsecureSkipVerify: setting.TLSInsecureSkipVerify,
+	res, err := refreshCodexOAuthTokenWithCheck(refreshCtx, oauthKey.RefreshToken, HTTPClientOptionsFromChannelSettings(setting), func() error {
+		fresh, err := model.GetChannelById(channelID, true)
+		if err != nil {
+			return err
+		}
+		if fresh == nil || fresh.Type != ch.Type || fresh.ChannelInfo.IsMultiKey || !shouldAutoRefreshCodexChannelStatus(fresh.Status) || fresh.Key != ch.Key || fresh.ConfigVersion != ch.ConfigVersion {
+			return errors.New("channel changed before credential refresh")
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, nil, err
@@ -95,9 +131,12 @@ func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts Code
 		return nil, nil, err
 	}
 
-	if err := model.DB.Model(&model.Channel{}).Where("id = ?", ch.Id).Update("key", string(encoded)).Error; err != nil {
+	persistCtx, persistCancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer persistCancel()
+	if err := model.ApplyCodexCredentialCAS(persistCtx, ch.Id, ch.Key, string(encoded), ch.ConfigVersion); err != nil {
 		return nil, nil, err
 	}
+	ch.Key = string(encoded)
 
 	if opts.ResetCaches {
 		model.InitChannelCache()

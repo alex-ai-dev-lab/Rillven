@@ -43,10 +43,13 @@ import { PromptSelector } from '@/features/channel-test-prompts/prompt-selector'
 import { getUserAgents } from '../../api'
 import { FIELD_DESCRIPTIONS } from '../../constants'
 import type { ChannelFormValues } from '../../lib'
+import { ChannelIdentityEditor } from './channel-identity-editor'
 
 export function RenewChannelSettings({
   form,
+  channelId,
 }: {
+  channelId?: number
   form: UseFormReturn<ChannelFormValues>
 }) {
   const { t } = useTranslation()
@@ -64,6 +67,202 @@ export function RenewChannelSettings({
     }))
   return (
     <div className='grid min-w-0 gap-5 border-t pt-5 sm:grid-cols-2'>
+      <FormField
+        control={form.control}
+        name='egress_policy'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Outbound connection policy')}</FormLabel>
+            <Select
+              value={field.value || 'inherit'}
+              onValueChange={field.onChange}
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value='inherit'>
+                  {t('Use configured or environment proxy')}
+                </SelectItem>
+                <SelectItem value='proxy'>
+                  {t('Require channel proxy')}
+                </SelectItem>
+                <SelectItem value='direct'>{t('Direct connection')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormDescription>
+              {t(
+                'Required proxy mode rejects requests if the proxy is removed or unavailable. It also applies to channel maintenance requests.'
+              )}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='client_identity_mode'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Client identity scope')}</FormLabel>
+            <Select
+              value={field.value || 'inherit'}
+              onValueChange={field.onChange}
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value='inherit'>
+                  {t('Use global default')}
+                </SelectItem>
+                <SelectItem value='per_channel'>
+                  {t('Independent channel identity')}
+                </SelectItem>
+                <SelectItem value='shadow'>
+                  {t('Preview independent identity')}
+                </SelectItem>
+                <SelectItem value='legacy'>
+                  {t('Legacy global identity')}
+                </SelectItem>
+                <SelectItem value='disabled'>{t('Disabled')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='client_profile'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Client profile')}</FormLabel>
+            <Select
+              value={field.value || 'inherit'}
+              onValueChange={field.onChange}
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value='inherit'>
+                  {t('Use existing User-Agent settings')}
+                </SelectItem>
+                <SelectItem value='codex'>{t('Codex CLI')}</SelectItem>
+                <SelectItem value='claude'>{t('Claude CLI')}</SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='conversation_recovery'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Conversation recovery')}</FormLabel>
+            <Select value={field.value || 'off'} onValueChange={field.onChange}>
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value='off'>{t('Disabled')}</SelectItem>
+                <SelectItem value='shadow'>
+                  {t('Store recovery checkpoints')}
+                </SelectItem>
+                <SelectItem value='managed'>
+                  {t('Automatic conversation recovery')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='stream_commit_mode'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Response delivery')}</FormLabel>
+            <Select
+              value={field.value || 'realtime'}
+              onValueChange={field.onChange}
+            >
+              <FormControl>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                <SelectItem value='realtime'>
+                  {t('Realtime streaming')}
+                </SelectItem>
+                <SelectItem value='atomic_turn'>
+                  {t('Buffer until the turn completes')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='client_version'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Client version')}</FormLabel>
+            <FormControl>
+              <Input
+                {...field}
+                value={field.value || ''}
+                placeholder={t('Use profile default')}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='upstream_coordination'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Coordinate upstream account limits')}</FormLabel>
+            <FormControl>
+              <Switch
+                checked={field.value || false}
+                onCheckedChange={field.onChange}
+              />
+            </FormControl>
+            <FormDescription>
+              {t(
+                'Share quota cooldowns and a bounded request queue when channels use the same upstream account.'
+              )}
+            </FormDescription>
+          </FormItem>
+        )}
+      />
+      <div className='space-y-2 sm:col-span-2'>
+        <p className='text-muted-foreground text-sm'>
+          {t(
+            'Managed recovery stores encrypted context locally, including upstream store=false requests. Buffering increases time to first output. Configure state encryption keys before enabling these features.'
+          )}
+        </p>
+        <ChannelIdentityEditor channelId={channelId} />
+      </div>
+
       <FormField
         control={form.control}
         name='channel_test_prompt_id'

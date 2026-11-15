@@ -18,6 +18,12 @@ func unsupportedProtocolConversion(format string, args ...any) error {
 	return &UnsupportedProtocolConversionError{err: fmt.Errorf(format, args...)}
 }
 
+// UnsupportedProtocolFeature is for valid features a destination cannot express.
+// Parsing/shape errors must remain ordinary errors and must not trigger failover.
+func UnsupportedProtocolFeature(format string, args ...any) error {
+	return unsupportedProtocolConversion(format, args...)
+}
+
 func IsUnsupportedProtocolConversion(err error) bool {
 	var unsupported *UnsupportedProtocolConversionError
 	return errors.As(err, &unsupported)

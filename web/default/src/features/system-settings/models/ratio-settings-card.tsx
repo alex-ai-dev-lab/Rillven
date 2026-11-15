@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as z from 'zod'
-import { useForm } from 'react-hook-form'
+import { useForm, useFormState } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Download, Upload } from 'lucide-react'
@@ -243,14 +243,25 @@ export function RatioSettingsCard({
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [importText, setImportText] = useState('')
-  const [toolPricesOverride, setToolPricesOverride] = useState<string | null>(
-    null
+  const [toolPricesDraft, setToolPricesDraft] = useState<{
+    base: string
+    value: string
+  } | null>(null)
+  const toolPricesOverride =
+    toolPricesDraft?.base === toolPricesDefault ? toolPricesDraft.value : null
+  const modelDraftRef = useRef<{ stage(): Promise<boolean> }>(null)
+  const [editorEpoch, setEditorEpoch] = useState(0)
+  const resetModelPending = useRef(false)
+  const [activeTab, setActiveTab] = useState<RatioTabId>(
+    visibleTabs[0] ?? 'models'
   )
 
   const resetMutation = useMutation({
     mutationFn: resetModelRatios,
     onSuccess: (data) => {
       if (data.success) {
+        resetModelPending.current = true
+        setEditorEpoch((value) => value + 1)
         toast.success(t('Model prices reset successfully'))
         queryClient.invalidateQueries({ queryKey: ['system-options'] })
         setConfirmOpen(false)
@@ -327,6 +338,10 @@ export function RatioSettingsCard({
     },
   })
 
+  // RHF only preserves dirty fields on refetch when that state is subscribed.
+  void useFormState({ control: modelForm.control }).dirtyFields
+  void useFormState({ control: groupForm.control }).dirtyFields
+
   useEffect(() => {
     modelNormalizedDefaults.current = {
       ModelPrice: normalizeJsonString(modelDefaults.ModelPrice),
@@ -344,21 +359,25 @@ export function RatioSettingsCard({
       BillingExpr: normalizeJsonString(modelDefaults.BillingExpr),
     }
 
-    modelForm.reset({
-      ...modelDefaults,
-      ModelPrice: formatJsonForTextarea(modelDefaults.ModelPrice),
-      ModelRatio: formatJsonForTextarea(modelDefaults.ModelRatio),
-      CacheRatio: formatJsonForTextarea(modelDefaults.CacheRatio),
-      CreateCacheRatio: formatJsonForTextarea(modelDefaults.CreateCacheRatio),
-      CompletionRatio: formatJsonForTextarea(modelDefaults.CompletionRatio),
-      ImageRatio: formatJsonForTextarea(modelDefaults.ImageRatio),
-      AudioRatio: formatJsonForTextarea(modelDefaults.AudioRatio),
-      AudioCompletionRatio: formatJsonForTextarea(
-        modelDefaults.AudioCompletionRatio
-      ),
-      BillingMode: formatJsonForTextarea(modelDefaults.BillingMode),
-      BillingExpr: formatJsonForTextarea(modelDefaults.BillingExpr),
-    })
+    modelForm.reset(
+      {
+        ...modelDefaults,
+        ModelPrice: formatJsonForTextarea(modelDefaults.ModelPrice),
+        ModelRatio: formatJsonForTextarea(modelDefaults.ModelRatio),
+        CacheRatio: formatJsonForTextarea(modelDefaults.CacheRatio),
+        CreateCacheRatio: formatJsonForTextarea(modelDefaults.CreateCacheRatio),
+        CompletionRatio: formatJsonForTextarea(modelDefaults.CompletionRatio),
+        ImageRatio: formatJsonForTextarea(modelDefaults.ImageRatio),
+        AudioRatio: formatJsonForTextarea(modelDefaults.AudioRatio),
+        AudioCompletionRatio: formatJsonForTextarea(
+          modelDefaults.AudioCompletionRatio
+        ),
+        BillingMode: formatJsonForTextarea(modelDefaults.BillingMode),
+        BillingExpr: formatJsonForTextarea(modelDefaults.BillingExpr),
+      },
+      { keepDirtyValues: !resetModelPending.current }
+    )
+    resetModelPending.current = false
   }, [modelDefaults, modelForm])
 
   useEffect(() => {
@@ -374,22 +393,21 @@ export function RatioSettingsCard({
       ),
     }
 
-    groupForm.reset({
-      ...groupDefaults,
-      GroupRatio: formatJsonForTextarea(groupDefaults.GroupRatio),
-      TopupGroupRatio: formatJsonForTextarea(groupDefaults.TopupGroupRatio),
-      UserUsableGroups: formatJsonForTextarea(groupDefaults.UserUsableGroups),
-      GroupGroupRatio: formatJsonForTextarea(groupDefaults.GroupGroupRatio),
-      AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
-      GroupSpecialUsableGroup: formatJsonForTextarea(
-        groupDefaults.GroupSpecialUsableGroup
-      ),
-    })
+    groupForm.reset(
+      {
+        ...groupDefaults,
+        GroupRatio: formatJsonForTextarea(groupDefaults.GroupRatio),
+        TopupGroupRatio: formatJsonForTextarea(groupDefaults.TopupGroupRatio),
+        UserUsableGroups: formatJsonForTextarea(groupDefaults.UserUsableGroups),
+        GroupGroupRatio: formatJsonForTextarea(groupDefaults.GroupGroupRatio),
+        AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
+        GroupSpecialUsableGroup: formatJsonForTextarea(
+          groupDefaults.GroupSpecialUsableGroup
+        ),
+      },
+      { keepDirtyValues: true }
+    )
   }, [groupDefaults, groupForm])
-
-  useEffect(() => {
-    setToolPricesOverride(null)
-  }, [toolPricesDefault])
 
   const formatImportJsonValue = useCallback(
     (value: unknown, fallback: string) => {
@@ -437,6 +455,7 @@ export function RatioSettingsCard({
   }, [groupForm, modelForm, toolPricesDefault, toolPricesOverride])
 
   const exportConfig = useCallback(async () => {
+    if (modelDraftRef.current && !(await modelDraftRef.current.stage())) return
     const text = JSON.stringify(buildExportPayload(), null, 2)
     try {
       await navigator.clipboard?.writeText(text)
@@ -552,15 +571,26 @@ export function RatioSettingsCard({
         payload['tool_price_setting.prices'] ??
         (payload as Record<string, unknown>).ToolPrices
       if (toolPrices !== undefined) {
-        setToolPricesOverride(formatImportJsonValue(toolPrices, '{}'))
+        setToolPricesDraft({
+          base: toolPricesDefault,
+          value: formatImportJsonValue(toolPrices, '{}'),
+        })
       }
 
       setImportOpen(false)
+      setEditorEpoch((value) => value + 1)
       toast.success(t('Model pricing imported'))
     } catch {
       toast.error(t('Invalid model pricing JSON'))
     }
-  }, [formatImportJsonValue, groupForm, importText, modelForm, t])
+  }, [
+    formatImportJsonValue,
+    groupForm,
+    importText,
+    modelForm,
+    t,
+    toolPricesDefault,
+  ])
 
   const saveModelRatios = useCallback(
     async (values: ModelFormValues) => {
@@ -601,8 +631,10 @@ export function RatioSettingsCard({
         ])
       )
       await updateOptionsBulk.mutateAsync({ options })
+      modelNormalizedDefaults.current = normalized
+      modelForm.reset(values)
     },
-    [t, updateOptionsBulk]
+    [t, updateOptionsBulk, modelForm]
   )
 
   const saveGroupRatios = useCallback(
@@ -637,8 +669,10 @@ export function RatioSettingsCard({
         updates.map((key) => [apiKeyMap[key] || key, normalized[key]])
       )
       await updateOptionsBulk.mutateAsync({ options })
+      groupNormalizedDefaults.current = normalized
+      groupForm.reset(values)
     },
-    [updateOptionsBulk]
+    [updateOptionsBulk, groupForm]
   )
 
   const handleResetRatios = useCallback(() => {
@@ -668,6 +702,8 @@ export function RatioSettingsCard({
     if (tab === 'models') {
       return (
         <ModelRatioForm
+          key={editorEpoch}
+          draftRef={modelDraftRef}
           form={modelForm}
           onSave={saveModelRatios}
           onReset={handleResetRatios}
@@ -725,7 +761,21 @@ export function RatioSettingsCard({
         {visibleTabs.length === 1 ? (
           renderTabContent(defaultTab)
         ) : (
-          <Tabs defaultValue={defaultTab} className='space-y-6'>
+          <Tabs
+            value={activeTab}
+            onValueChange={(next) => {
+              void (async () => {
+                if (
+                  activeTab === 'models' &&
+                  modelDraftRef.current &&
+                  !(await modelDraftRef.current.stage())
+                )
+                  return
+                setActiveTab(next as RatioTabId)
+              })()
+            }}
+            className='space-y-6'
+          >
             <TabsList className={`grid w-full ${tabsGridClass}`}>
               {visibleTabs.map((tab) => (
                 <TabsTrigger key={tab} value={tab}>

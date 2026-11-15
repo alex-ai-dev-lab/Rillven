@@ -1,6 +1,14 @@
 # RenewAPI 当前项目状态
 
-更新日期：2026-10-28。源码状态以 Git 提交和工作树改动为准，生产镜像与验收范围以对应部署归档为准。
+更新日期：2026-11-15。源码状态以 Git 提交和工作树改动为准，生产镜像与验收范围以对应部署归档为准。
+
+## 定价、工具兼容及账号保护（源码已实现，未部署）
+
+在 `repair-20261017` 的 main 工作树完成统一定价保存、Responses 工具原生回退、渠道/凭据独立身份、严格出口、加密托管上下文及 HTTP/SSE/WS 恢复、atomic_turn 与现有资金账本协调、OAuth grant journal 和可选账户 FIFO/额度冷却。没有提交、推送、发布或部署。
+
+全仓 Go 测试/vet/build、受影响路径 race、前端 234 项测试/类型/改动文件 lint/构建、四个外部数据库版本、30 组独立进程崩溃恢复及 Playwright 真保存通过。功能默认灰度启用，需要独立状态 keyring；关闭新会话写入后须保留旧逻辑 ID 的读取能力。
+
+实际范围、默认限制、启用/回退、验证证据及未覆盖的目标重压缩/私有资源/厂商 quota/TLS 试点见[实施验收](audits/2026-11-managed-recovery-implementation.md)、[ADR-023](decisions/023-managed-conversation-recovery.md)和[任务记录](../tasks/active/2026-11-pricing-tools-upstream.md)。不保证任意历史或已输出的实时流都可透明迁移，也不将本地验证当成生产防封禁证明。
 
 ## v1.5.1 已发布上线
 

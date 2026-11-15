@@ -100,20 +100,22 @@ func RecordRouterCooldownFailure(channelID int, info *relaycommon.RelayInfo, err
 	now := time.Now()
 	ttl := RouterCooldownTTL()
 	if err.RetryHint > 0 {
-		ttl = err.RetryHint
+		ttl = min(err.RetryHint, 24*time.Hour)
 	}
 	threshold := RouterCooldownThreshold()
 
 	routerCooldownTracker.Lock()
 	defer routerCooldownTracker.Unlock()
 	state := routerCooldownTracker.items[key]
-	if !state.LastFailure.IsZero() && now.Sub(state.LastFailure) > ttl {
+	if !state.LastFailure.IsZero() && now.Sub(state.LastFailure) > ttl && !state.CooldownUntil.After(now) {
 		state = RouterCooldownState{}
 	}
 	state.Count++
 	state.LastFailure = now
 	if state.Count >= threshold {
-		state.CooldownUntil = now.Add(ttl)
+		if deadline := now.Add(ttl); deadline.After(state.CooldownUntil) {
+			state.CooldownUntil = deadline
+		}
 	} else {
 		state.CooldownUntil = time.Time{}
 	}
@@ -126,11 +128,14 @@ func ClearRouterCooldown(channelID int, info *relaycommon.RelayInfo) {
 	}
 	routerCooldownTracker.Lock()
 	defer routerCooldownTracker.Unlock()
+	if info != nil && !info.AttemptStartedAt.IsZero() && routerCooldownTracker.items[routerCooldownKey(channelID, info)].LastFailure.After(info.AttemptStartedAt) {
+		return
+	}
 	delete(routerCooldownTracker.items, routerCooldownKey(channelID, info))
 }
 
 func ShouldRouterCooldownTrackError(err *types.NewAPIError) bool {
-	if err == nil || types.IsSkipRetryError(err) || types.IsClientCanceledError(err) || IsTLSVerificationError(err) || IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
+	if err == nil || types.IsLocalRelayRejection(err) || types.IsSkipRetryError(err) || types.IsClientCanceledError(err) || IsTLSVerificationError(err) || IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
 		return false
 	}
 	if err.GetErrorCode() == types.ErrorCodeDoRequestFailed ||

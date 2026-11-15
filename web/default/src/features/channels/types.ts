@@ -143,6 +143,18 @@ export interface ChannelSettings {
   anti_poison_shape_check_enabled?: boolean
   requires_codex_identity?: boolean
   responses_request_profile?: 'auto' | 'responses' | 'codex'
+  client_identity_mode?:
+    | 'inherit'
+    | 'per_channel'
+    | 'shadow'
+    | 'legacy'
+    | 'disabled'
+  egress_policy?: 'inherit' | 'direct' | 'proxy'
+  client_profile?: 'inherit' | 'codex' | 'claude'
+  client_version?: string
+  conversation_recovery?: 'off' | 'shadow' | 'managed'
+  upstream_coordination?: boolean
+  stream_commit_mode?: 'realtime' | 'atomic_turn'
   responses_supports_max_output_tokens?: boolean
   upstream_param_override?: Record<string, unknown>
   supports_claude_thinking?: boolean
@@ -483,7 +495,19 @@ export interface ChannelFormData {
   anti_poison_canary_echo_enabled?: boolean
   anti_poison_shape_check_enabled?: boolean
   requires_codex_identity?: 'auto' | 'true' | 'false'
+  egress_policy?: 'inherit' | 'direct' | 'proxy'
   responses_request_profile?: 'auto' | 'responses' | 'codex'
+  client_identity_mode?:
+    | 'inherit'
+    | 'legacy'
+    | 'disabled'
+    | 'per_channel'
+    | 'shadow'
+  client_profile?: 'inherit' | 'codex' | 'claude'
+  client_version?: string
+  conversation_recovery?: 'off' | 'shadow' | 'managed'
+  upstream_coordination?: boolean
+  stream_commit_mode?: 'realtime' | 'atomic_turn'
   responses_supports_max_output_tokens?: 'auto' | 'true' | 'false'
   upstream_param_override?: string
   supports_claude_thinking?: 'auto' | 'true' | 'false'

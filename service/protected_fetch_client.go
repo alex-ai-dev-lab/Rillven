@@ -71,9 +71,15 @@ func newProtectedFetchHTTPClient() *http.Client {
 
 func newProtectedFetchHTTPClientWithOptions(options HTTPClientOptions) (*http.Client, error) {
 	options = normalizeHTTPClientOptions(options)
+	if err := validateHTTPEgress(options); err != nil {
+		return nil, err
+	}
 	netDialer := &net.Dialer{Timeout: boundedHTTPTimeout(common.RelayDialTimeout, 30), KeepAlive: 30 * time.Second}
 	dialContext := netDialer.DialContext
 	proxyFunc := http.ProxyFromEnvironment
+	if options.EgressPolicy == "direct" {
+		proxyFunc = nil
+	}
 	protectDirectDial := true
 
 	if options.Proxy != "" {

@@ -43,6 +43,17 @@ func (cm *ConfigManager) Get(name string) interface{} {
 	return cm.configs[name]
 }
 
+// ReadValue copies scalar configuration while holding the same lock used by
+// updates. Callers must not use it to retain mutable maps/slices from a config.
+func ReadValue[T any](name string) (value T) {
+	GlobalConfig.mutex.RLock()
+	defer GlobalConfig.mutex.RUnlock()
+	if pointer, ok := GlobalConfig.configs[name].(*T); ok && pointer != nil {
+		value = *pointer
+	}
+	return value
+}
+
 // LoadFromDB 从数据库加载配置
 func (cm *ConfigManager) LoadFromDB(options map[string]string) error {
 	cm.mutex.Lock()

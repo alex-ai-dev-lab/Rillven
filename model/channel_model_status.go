@@ -57,6 +57,7 @@ type ChannelModelFailureUpdate struct {
 }
 
 type ChannelModelSuccessUpdate struct {
+	StartedAt     int64
 	ChannelId     int
 	Group         string
 	ModelName     string
@@ -481,9 +482,14 @@ func RecordChannelModelSuccess(update ChannelModelSuccessUpdate) error {
 	}
 	// 注意: 这里只 UPDATE，不插入。RowsAffected==0 说明还没有过失败记录，
 	// 属于正常情况，不需要为每次成功请求都建一行。
-	tx := DB.Model(&ChannelModelStatus{}).
-		Where(map[string]interface{}{"channel_id": update.ChannelId, "group": update.Group, "model_name": update.ModelName}).
-		Updates(updates)
+	query := DB.Model(&ChannelModelStatus{}).
+		Where(map[string]interface{}{"channel_id": update.ChannelId, "group": update.Group, "model_name": update.ModelName}).Where("status <> ?", common.ChannelStatusManuallyDisabled)
+	// Same-second races are conservatively retained because legacy timestamps
+	// have second precision. A later success may clear them.
+	if update.StartedAt > 0 {
+		query = query.Where("updated_time < ?", update.StartedAt)
+	}
+	tx := query.Updates(updates)
 	if tx.Error != nil {
 		return tx.Error
 	}

@@ -16,7 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type Ref,
+} from 'react'
 import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -101,6 +108,7 @@ type LaneKey =
 
 export type ModelRatioData = {
   name: string
+  originalName?: string
   price?: string
   ratio?: string
   cacheRatio?: string
@@ -114,10 +122,17 @@ export type ModelRatioData = {
   requestRuleExpr?: string
 }
 
+export type ModelPricingEditorHandle = {
+  snapshot: () => Promise<ModelRatioData | null>
+  markStaged: () => void
+}
+
 type ModelPricingSheetProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSave: (data: ModelRatioData) => void
+  onSave: (data: ModelRatioData) => Promise<boolean>
+  editorRef?: Ref<ModelPricingEditorHandle>
+  isSaving?: boolean
   onCancel?: () => void
   editData?: ModelRatioData | null
   selectedTargetCount?: number
@@ -381,6 +396,8 @@ export function ModelPricingSheet({
   open,
   onOpenChange,
   onSave,
+  editorRef,
+  isSaving,
   onCancel,
   editData,
   selectedTargetCount = 0,
@@ -401,6 +418,8 @@ export function ModelPricingSheet({
         </SheetHeader>
         <ModelPricingEditorPanel
           onSave={onSave}
+          editorRef={editorRef}
+          isSaving={isSaving}
           editData={editData}
           selectedTargetCount={selectedTargetCount}
           onCancel={() => {
@@ -416,6 +435,8 @@ export function ModelPricingSheet({
 
 export function ModelPricingEditorPanel({
   onSave,
+  editorRef,
+  isSaving,
   editData,
   selectedTargetCount = 0,
   onCancel,
@@ -434,6 +455,10 @@ export function ModelPricingEditorPanel({
   const [requestRuleExpr, setRequestRuleExpr] = useState('')
   const [previewOpen, setPreviewOpen] = useState(true)
   const isEditMode = !!editData
+  const originalName = useRef(editData?.name)
+  useEffect(() => {
+    originalName.current = editData?.name
+  }, [editData])
 
   const form = useForm<ModelPricingFormValues>({
     resolver: zodResolver(createModelPricingSchema(t)),
@@ -687,7 +712,9 @@ export function ModelPricingEditorPanel({
     return nextWarnings
   }, [editData, laneEnabled, lanePrices, pricingMode, promptPrice, t])
 
-  const handleSubmit = (values: ModelPricingFormValues) => {
+  const buildDraft = (
+    values: ModelPricingFormValues
+  ): ModelRatioData | null => {
     if (
       pricingMode === 'per-token' &&
       toNumberOrNull(promptPrice) === null &&
@@ -698,7 +725,7 @@ export function ModelPricingEditorPanel({
       form.setError('ratio', {
         message: t('Input price is required before saving dependent prices.'),
       })
-      return
+      return null
     }
 
     if (
@@ -709,11 +736,12 @@ export function ModelPricingEditorPanel({
       form.setError('audioRatio', {
         message: t('Audio output price requires an audio input price.'),
       })
-      return
+      return null
     }
 
     const data: ModelRatioData = {
       name: values.name.trim(),
+      originalName: originalName.current,
       billingMode: pricingMode,
       price: values.price || '',
       ratio: values.ratio || '',
@@ -730,9 +758,22 @@ export function ModelPricingEditorPanel({
       data.requestRuleExpr = requestRuleExpr
     }
 
-    onSave(data)
-    form.reset()
-    onCancel?.()
+    return data
+  }
+
+  useImperativeHandle(editorRef, () => ({
+    markStaged() {
+      originalName.current = form.getValues().name.trim()
+    },
+    async snapshot() {
+      if (!(await form.trigger())) return null
+      return buildDraft(form.getValues())
+    },
+  }))
+
+  const handleSubmit = async (values: ModelPricingFormValues) => {
+    const data = buildDraft(values)
+    if (data && (await onSave(data))) onCancel?.()
   }
 
   const activeName = watchedValues.name || editData?.name || t('New model')
@@ -788,11 +829,7 @@ export function ModelPricingEditorPanel({
                   <FormItem>
                     <FormLabel>{t('Model name')}</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder={t('gpt-4')}
-                        {...field}
-                        disabled={isEditMode}
-                      />
+                      <Input placeholder={t('gpt-4')} {...field} />
                     </FormControl>
                     <FormDescription>
                       {t('The exact model identifier as used in API requests.')}
@@ -865,9 +902,9 @@ export function ModelPricingEditorPanel({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t('Fixed price')}</FormLabel>
-                        <FormControl>
-                          <InputGroup>
-                            <InputGroupAddon>$</InputGroupAddon>
+                        <InputGroup>
+                          <InputGroupAddon>$</InputGroupAddon>
+                          <FormControl>
                             <InputGroupInput
                               inputMode='decimal'
                               placeholder='0.01'
@@ -879,11 +916,11 @@ export function ModelPricingEditorPanel({
                                 }
                               }}
                             />
-                            <InputGroupAddon align='inline-end'>
-                              {t('per request')}
-                            </InputGroupAddon>
-                          </InputGroup>
-                        </FormControl>
+                          </FormControl>
+                          <InputGroupAddon align='inline-end'>
+                            {t('per request')}
+                          </InputGroupAddon>
+                        </InputGroup>
                         <FormDescription>
                           {t(
                             'Cost in USD per request, regardless of tokens used.'
@@ -965,14 +1002,19 @@ export function ModelPricingEditorPanel({
                 ? t('{{count}} selected targets available for bulk copy.', {
                     count: selectedTargetCount,
                   })
-                : t('Changes are written to the settings draft on save.')}
+                : t('Save model prices')}
             </div>
             <div className='flex justify-end gap-2'>
-              <Button type='button' variant='outline' onClick={onCancel}>
+              <Button
+                type='button'
+                variant='outline'
+                onClick={onCancel}
+                disabled={isSaving}
+              >
                 {t('Cancel')}
               </Button>
-              <Button type='submit'>
-                {isEditMode ? t('Update') : t('Add')}
+              <Button type='submit' disabled={isSaving}>
+                {isSaving ? t('Saving...') : t('Save model prices')}
               </Button>
             </div>
           </SheetFooter>

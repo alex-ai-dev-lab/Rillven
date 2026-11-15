@@ -40,6 +40,9 @@ func EvaluateChannelProtocolCapability(channel *model.Channel, modelName string,
 				return unsupportedCapability(target, "", "body pass-through conflicts with protocol conversion")
 			}
 			if err := ValidateNormalizedBridgeRequest(request, target); err != nil {
+				if clientFormat == types.RelayFormatOpenAIResponses && openaicompat.IsUnsupportedProtocolConversion(err) && CanUseNativeResponsesProtocolFallback(channel, decision) {
+					return supportedCapability(constant.EndpointTypeOpenAIResponse, "native", "preserve source features using native Responses protocol")
+				}
 				if clientFormat == types.RelayFormatClaude && openaicompat.IsUnsupportedProtocolConversion(err) && CanUseNativeClaudeProtocolFallback(channel, decision) {
 					return supportedCapability(constant.EndpointTypeAnthropic, "native", "preserve source features using configured native Messages protocol")
 				}
@@ -133,11 +136,11 @@ func ValidateResponsesTextBridgeRequest(req *dto.OpenAIResponsesRequest) error {
 	}
 	for _, item := range unsupported {
 		if item.set {
-			return fmt.Errorf("Responses field %s cannot be represented by the safe text bridge", item.name)
+			return openaicompat.UnsupportedProtocolFeature("Responses field %s cannot be represented by the safe text bridge", item.name)
 		}
 	}
 	if len(req.Store) > 0 && string(req.Store) != "false" && string(req.Store) != "null" {
-		return fmt.Errorf("Responses field store cannot be represented by the safe text bridge")
+		return openaicompat.UnsupportedProtocolFeature("Responses field store cannot be represented by the safe text bridge")
 	}
 	prepared, _, err := openaicompat.PrepareResponsesRequestForTextBridge(req)
 	if err != nil {
@@ -163,7 +166,7 @@ func validateResponsesFunctionTools(raw []byte) error {
 	for _, tool := range tools {
 		toolType := strings.TrimSpace(common.Interface2String(tool["type"]))
 		if toolType != "function" {
-			return fmt.Errorf("Responses tool type %q is not supported by the safe text bridge", toolType)
+			return openaicompat.UnsupportedProtocolFeature("Responses tool type %q is not supported by the safe text bridge", toolType)
 		}
 	}
 	return nil
@@ -196,7 +199,7 @@ func validateResponsesInputValue(value any) error {
 		switch itemType {
 		case "", "message", "input_text", "output_text", "text", "function_call", "function_call_output":
 		default:
-			return fmt.Errorf("Responses input type %q is not supported by the safe text bridge", itemType)
+			return openaicompat.UnsupportedProtocolFeature("Responses input type %q is not supported by the safe text bridge", itemType)
 		}
 		if content, ok := item["content"]; ok {
 			return validateResponsesInputValue(content)

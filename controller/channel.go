@@ -1445,10 +1445,7 @@ func FetchModels(c *gin.Context) {
 	key = strings.Split(key, "\n")[0]
 
 	if req.Type == constant.ChannelTypeOllama {
-		models, err := ollama.FetchOllamaModels(baseURL, key, service.HTTPClientOptions{
-			Proxy:                 channelSetting.Proxy,
-			TLSInsecureSkipVerify: channelSetting.TLSInsecureSkipVerify,
-		})
+		models, err := ollama.FetchOllamaModels(baseURL, key, service.HTTPClientOptionsFromChannelSettings(channelSetting))
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -1470,7 +1467,7 @@ func FetchModels(c *gin.Context) {
 	}
 
 	if req.Type == constant.ChannelTypeGemini {
-		models, err := gemini.FetchGeminiModels(baseURL, key, channelSetting.Proxy, channelSetting.TLSInsecureSkipVerify)
+		models, err := gemini.FetchGeminiModelsWithOptions(c.Request.Context(), baseURL, key, service.HTTPClientOptionsFromChannelSettings(channelSetting))
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -1486,10 +1483,7 @@ func FetchModels(c *gin.Context) {
 		return
 	}
 
-	client, err := service.GetHttpClientWithOptions(service.HTTPClientOptions{
-		Proxy:                 channelSetting.Proxy,
-		TLSInsecureSkipVerify: channelSetting.TLSInsecureSkipVerify,
-	})
+	client, err := service.GetHttpClientWithChannelSettings(channelSetting)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"success": false,

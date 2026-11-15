@@ -74,6 +74,9 @@ func IsAntiPoisonValidationError(err *types.NewAPIError) bool {
 }
 
 func ShouldDisableChannel(err *types.NewAPIError) bool {
+	if types.IsGatewayCoordinationError(err) {
+		return false
+	}
 	if IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
 		return false
 	}
@@ -127,6 +130,9 @@ func ShouldDisableChannel(err *types.NewAPIError) bool {
 // error is counted. It never disables a channel on its own; the configured
 // threshold and failure window still gate the actual disable.
 func ShouldCountChannelFailureForDisable(err *types.NewAPIError) bool {
+	if types.IsGatewayCoordinationError(err) {
+		return false
+	}
 	// Invalid conversation history must never penalize channel health, even
 	// when administrators count all errors or include every HTTP status.
 	if IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
@@ -152,6 +158,9 @@ func ShouldCountChannelFailureForDisable(err *types.NewAPIError) bool {
 }
 
 func IsModelScopedChannelFailureError(err *types.NewAPIError) bool {
+	if types.IsGatewayCoordinationError(err) {
+		return false
+	}
 	if err == nil || IsTLSVerificationError(err) || IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
 		return false
 	}
@@ -198,7 +207,7 @@ func containsAnyModelFailureKeyword(msg string, keywords []string) bool {
 }
 
 func IsChannelFailureError(err *types.NewAPIError) bool {
-	if err == nil || IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
+	if err == nil || types.IsLocalRelayRejection(err) && (types.IsSkipRetryError(err) || err.StatusCode < 500) || IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
 		return false
 	}
 	if IsTLSVerificationError(err) {
@@ -225,7 +234,7 @@ func IsChannelFailureError(err *types.NewAPIError) bool {
 }
 
 func IsImmediateChannelDisableError(err *types.NewAPIError) bool {
-	if err == nil || IsTLSVerificationError(err) || IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
+	if err == nil || types.IsLocalRelayRejection(err) || IsTLSVerificationError(err) || IsInvalidEncryptedReasoningError(err) || types.IsRequestProtocolUnsupportedError(err) {
 		return false
 	}
 	if IsModelScopedChannelFailureError(err) {

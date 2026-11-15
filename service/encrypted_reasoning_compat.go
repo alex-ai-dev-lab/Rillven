@@ -49,6 +49,14 @@ func ShouldUseEncryptedReasoningCompat(req *dto.OpenAIResponsesRequest) bool {
 	return info.HasEncryptedReasoning || info.HasReasoningItem || info.HasPreviousResponseID
 }
 
+// Merely dropping an upstream reference cannot establish a complete replay.
+// Include is an output preference and does not itself bind existing history.
+func ResponsesRequestNeedsContextRecovery(req *dto.OpenAIResponsesRequest) bool {
+	return req != nil && (strings.TrimSpace(req.PreviousResponseID) != "" ||
+		len(req.Conversation) > 0 && string(req.Conversation) != "null" ||
+		hasEncryptedContentJSON(req.Input) || hasReasoningItemJSON(req.Input))
+}
+
 func ScrubEncryptedReasoningRequest(req *dto.OpenAIResponsesRequest) EncryptedReasoningScrubResult {
 	if req == nil {
 		return EncryptedReasoningScrubResult{}

@@ -16,7 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useMemo, memo, useCallback, useEffect } from 'react'
+import {
+  useState,
+  useMemo,
+  memo,
+  useCallback,
+  useEffect,
+  type RefObject,
+} from 'react'
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -55,15 +62,14 @@ import {
   DataTablePagination,
 } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
-import {
-  combineBillingExpr,
-  splitBillingExprAndRequestRules,
-} from '@/features/pricing/lib/billing-expr'
+import { splitBillingExprAndRequestRules } from '@/features/pricing/lib/billing-expr'
 import { safeJsonParse } from '../utils/json-parser'
+import { mergePricingDraft } from './model-pricing-draft'
 import {
   ModelPricingEditorPanel,
   ModelPricingSheet,
   type ModelRatioData,
+  type ModelPricingEditorHandle,
 } from './model-pricing-sheet'
 import { formatPricingNumber } from './pricing-format'
 
@@ -79,6 +85,10 @@ type ModelRatioVisualEditorProps = {
   billingMode: string
   billingExpr: string
   onChange: (field: string, value: string) => void
+  onSavePricing: (data: ModelRatioData) => Promise<boolean>
+  editorRef: RefObject<ModelPricingEditorHandle | null>
+  onStagePricing: () => Promise<boolean>
+  isSaving: boolean
 }
 
 type ModelRow = {
@@ -205,6 +215,10 @@ export const ModelRatioVisualEditor = memo(
     billingMode,
     billingExpr,
     onChange,
+    onSavePricing,
+    onStagePricing,
+    editorRef,
+    isSaving,
   }: ModelRatioVisualEditorProps) {
     const { t } = useTranslation()
     const isMobile = useMediaQuery('(max-width: 767px)')
@@ -413,7 +427,8 @@ export const ModelRatioVisualEditor = memo(
     )
 
     const handleEdit = useCallback(
-      (model: ModelRow) => {
+      async (model: ModelRow) => {
+        if (!(await onStagePricing())) return
         setEditData({
           name: model.name,
           price: model.price,
@@ -436,14 +451,15 @@ export const ModelRatioVisualEditor = memo(
         setEditorOpen(true)
         if (isMobile) setSheetOpen(true)
       },
-      [isMobile]
+      [isMobile, onStagePricing]
     )
 
-    const handleAdd = useCallback(() => {
+    const handleAdd = useCallback(async () => {
+      if (!(await onStagePricing())) return
       setEditData(null)
       setEditorOpen(true)
       if (isMobile) setSheetOpen(true)
-    }, [isMobile])
+    }, [isMobile, onStagePricing])
 
     const handleCancel = useCallback(() => {
       setEditData(null)
@@ -456,11 +472,6 @@ export const ModelRatioVisualEditor = memo(
         setGlobalFilter((previous) => {
           const next =
             typeof updater === 'function' ? updater(previous) : updater
-          if (next !== previous) {
-            setEditData(null)
-            setEditorOpen(false)
-            setSheetOpen(false)
-          }
           return next
         })
       },
@@ -704,122 +715,31 @@ export const ModelRatioVisualEditor = memo(
 
     const persistPricingData = useCallback(
       (data: ModelRatioData, targetNames: string[] = [data.name]) => {
-        const priceMap = safeJsonParse<Record<string, number>>(modelPrice, {
-          fallback: {},
-          silent: true,
-        })
-        const ratioMap = safeJsonParse<Record<string, number>>(modelRatio, {
-          fallback: {},
-          silent: true,
-        })
-        const cacheMap = safeJsonParse<Record<string, number>>(cacheRatio, {
-          fallback: {},
-          silent: true,
-        })
-        const createCacheMap = safeJsonParse<Record<string, number>>(
-          createCacheRatio,
-          { fallback: {}, silent: true }
+        const next = mergePricingDraft(
+          {
+            ModelPrice: modelPrice,
+            ModelRatio: modelRatio,
+            CacheRatio: cacheRatio,
+            CreateCacheRatio: createCacheRatio,
+            CompletionRatio: completionRatio,
+            ImageRatio: imageRatio,
+            AudioRatio: audioRatio,
+            AudioCompletionRatio: audioCompletionRatio,
+            BillingMode: billingMode,
+            BillingExpr: billingExpr,
+          },
+          data,
+          targetNames
         )
-        const completionMap = safeJsonParse<Record<string, number>>(
-          completionRatio,
-          { fallback: {}, silent: true }
-        )
-        const imageMap = safeJsonParse<Record<string, number>>(imageRatio, {
-          fallback: {},
-          silent: true,
-        })
-        const audioMap = safeJsonParse<Record<string, number>>(audioRatio, {
-          fallback: {},
-          silent: true,
-        })
-        const audioCompletionMap = safeJsonParse<Record<string, number>>(
-          audioCompletionRatio,
-          { fallback: {}, silent: true }
-        )
-        const billingModeMap = safeJsonParse<Record<string, string>>(
-          billingMode,
-          { fallback: {}, silent: true }
-        )
-        const billingExprMap = safeJsonParse<Record<string, string>>(
-          billingExpr,
-          { fallback: {}, silent: true }
-        )
-
-        const setIfPresent = (
-          target: Record<string, number>,
-          name: string,
-          value: string | undefined
-        ) => {
-          if (!value || value === '') return
-          const parsed = parseFloat(value)
-          if (Number.isFinite(parsed)) target[name] = parsed
+        for (const [field, value] of Object.entries(next)) {
+          const key =
+            field === 'BillingMode'
+              ? 'billing_setting.billing_mode'
+              : field === 'BillingExpr'
+                ? 'billing_setting.billing_expr'
+                : field
+          onChange(key, value)
         }
-
-        targetNames.forEach((name) => {
-          delete priceMap[name]
-          delete ratioMap[name]
-          delete cacheMap[name]
-          delete createCacheMap[name]
-          delete completionMap[name]
-          delete imageMap[name]
-          delete audioMap[name]
-          delete audioCompletionMap[name]
-          delete billingModeMap[name]
-          delete billingExprMap[name]
-
-          if (data.billingMode === 'tiered_expr') {
-            const combined = combineBillingExpr(
-              data.billingExpr || '',
-              data.requestRuleExpr || ''
-            )
-            if (combined) {
-              billingModeMap[name] = 'tiered_expr'
-              billingExprMap[name] = combined
-            }
-            // Always serialize ratio/price values for tiered_expr models so they
-            // serve as fallback during multi-instance sync delays. The backend's
-            // ModelPriceHelper checks billing_mode first, so these values are
-            // only consulted when billing_setting hasn't propagated yet.
-            setIfPresent(priceMap, name, data.price)
-            setIfPresent(ratioMap, name, data.ratio)
-            setIfPresent(cacheMap, name, data.cacheRatio)
-            setIfPresent(createCacheMap, name, data.createCacheRatio)
-            setIfPresent(completionMap, name, data.completionRatio)
-            setIfPresent(imageMap, name, data.imageRatio)
-            setIfPresent(audioMap, name, data.audioRatio)
-            setIfPresent(audioCompletionMap, name, data.audioCompletionRatio)
-          } else if (data.price && data.price !== '') {
-            setIfPresent(priceMap, name, data.price)
-          } else {
-            setIfPresent(ratioMap, name, data.ratio)
-            setIfPresent(cacheMap, name, data.cacheRatio)
-            setIfPresent(createCacheMap, name, data.createCacheRatio)
-            setIfPresent(completionMap, name, data.completionRatio)
-            setIfPresent(imageMap, name, data.imageRatio)
-            setIfPresent(audioMap, name, data.audioRatio)
-            setIfPresent(audioCompletionMap, name, data.audioCompletionRatio)
-          }
-        })
-
-        onChange('ModelPrice', JSON.stringify(priceMap, null, 2))
-        onChange('ModelRatio', JSON.stringify(ratioMap, null, 2))
-        onChange('CacheRatio', JSON.stringify(cacheMap, null, 2))
-        onChange('CreateCacheRatio', JSON.stringify(createCacheMap, null, 2))
-        onChange('CompletionRatio', JSON.stringify(completionMap, null, 2))
-        onChange('ImageRatio', JSON.stringify(imageMap, null, 2))
-        onChange('AudioRatio', JSON.stringify(audioMap, null, 2))
-        onChange(
-          'AudioCompletionRatio',
-          JSON.stringify(audioCompletionMap, null, 2)
-        )
-        onChange(
-          'billing_setting.billing_mode',
-          JSON.stringify(billingModeMap, null, 2)
-        )
-        onChange(
-          'billing_setting.billing_expr',
-          JSON.stringify(billingExprMap, null, 2)
-        )
       },
       [
         modelPrice,
@@ -837,21 +757,19 @@ export const ModelRatioVisualEditor = memo(
     )
 
     const handleSave = useCallback(
-      (data: ModelRatioData) => {
-        persistPricingData(data)
-        setEditData(data)
-        setEditorOpen(true)
-        toast.success(
-          t(
-            'Pricing changes saved to draft. Click "Save model prices" to apply.'
-          )
-        )
+      async (data: ModelRatioData) => {
+        const saved = await onSavePricing(data)
+        if (saved) setEditData(data)
+        return saved
       },
-      [persistPricingData, t]
+      [onSavePricing]
     )
 
-    const handleBatchCopy = useCallback(() => {
-      if (!editData) {
+    const handleBatchCopy = useCallback(async () => {
+      const source = editorRef.current
+        ? await editorRef.current.snapshot()
+        : editData
+      if (!source) {
         toast.error(t('Open a source model first'))
         return
       }
@@ -865,15 +783,24 @@ export const ModelRatioVisualEditor = memo(
         return
       }
 
-      persistPricingData(editData, targetNames)
+      try {
+        persistPricingData(source, targetNames)
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? t(error.message)
+            : t('Invalid model pricing JSON')
+        )
+        return
+      }
       table.resetRowSelection()
       toast.success(
         t('Applied {{name}} pricing to {{count}} models', {
-          name: editData.name,
+          name: source.name,
           count: targetNames.length,
         })
       )
-    }, [editData, persistPricingData, t, table])
+    }, [editData, editorRef, persistPricingData, t, table])
 
     const selectedTargetCount = table.getFilteredSelectedRowModel().rows.length
 
@@ -980,13 +907,15 @@ export const ModelRatioVisualEditor = memo(
           </div>
 
           <div className='hidden min-w-0 md:block'>
-            {editorOpen ? (
+            {!isMobile && editorOpen ? (
               <ModelPricingEditorPanel
                 onSave={handleSave}
+                editorRef={editorRef}
+                isSaving={isSaving}
                 onCancel={handleCancel}
                 editData={editData}
                 selectedTargetCount={selectedTargetCount}
-                className='sticky top-4 h-[calc(100vh-8rem)] min-h-[620px]'
+                className='sticky top-4 h-[min(44rem,calc(100dvh-14rem))] min-h-0'
               />
             ) : (
               <div className='bg-card text-muted-foreground sticky top-4 flex h-[calc(100vh-8rem)] min-h-[420px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed p-6 text-center'>
@@ -1021,6 +950,8 @@ export const ModelRatioVisualEditor = memo(
             open={sheetOpen}
             onOpenChange={setSheetOpen}
             onSave={handleSave}
+            editorRef={editorRef}
+            isSaving={isSaving}
             onCancel={handleCancel}
             editData={editData}
             selectedTargetCount={selectedTargetCount}
@@ -1042,7 +973,11 @@ export const ModelRatioVisualEditor = memo(
       prevProps.audioCompletionRatio === nextProps.audioCompletionRatio &&
       prevProps.billingMode === nextProps.billingMode &&
       prevProps.billingExpr === nextProps.billingExpr &&
-      prevProps.onChange === nextProps.onChange
+      prevProps.onChange === nextProps.onChange &&
+      prevProps.onSavePricing === nextProps.onSavePricing &&
+      prevProps.onStagePricing === nextProps.onStagePricing &&
+      prevProps.editorRef === nextProps.editorRef &&
+      prevProps.isSaving === nextProps.isSaving
     )
   }
 )

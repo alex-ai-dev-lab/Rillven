@@ -69,10 +69,7 @@ func GetCodexChannelUsage(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	client, err := service.GetHttpClientWithOptions(service.HTTPClientOptions{
-		Proxy:                 setting.Proxy,
-		TLSInsecureSkipVerify: setting.TLSInsecureSkipVerify,
-	})
+	client, err := service.GetHttpClientWithChannelSettings(setting)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -81,40 +78,30 @@ func GetCodexChannelUsage(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
 
-	statusCode, body, err := service.FetchCodexWhamUsage(ctx, client, baseURL, accessToken, accountID)
+	profile, err := service.ChannelMaintenanceHeaders(ctx, ch)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	statusCode, body, err := service.FetchCodexWhamUsage(ctx, client, baseURL, accessToken, accountID, profile)
 	if err != nil {
 		common.SysError("failed to fetch codex usage: " + err.Error())
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取用量信息失败，请稍后重试"})
 		return
 	}
 
-	if (statusCode == http.StatusUnauthorized || statusCode == http.StatusForbidden) && strings.TrimSpace(oauthKey.RefreshToken) != "" {
+	if statusCode == http.StatusUnauthorized && strings.TrimSpace(oauthKey.RefreshToken) != "" {
 		refreshCtx, refreshCancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer refreshCancel()
 
-		res, refreshErr := service.RefreshCodexOAuthTokenWithOptions(refreshCtx, oauthKey.RefreshToken, service.HTTPClientOptions{
-			Proxy:                 setting.Proxy,
-			TLSInsecureSkipVerify: setting.TLSInsecureSkipVerify,
-		})
+		res, _, refreshErr := service.RefreshCodexChannelCredential(refreshCtx, ch.Id, service.CodexCredentialRefreshOptions{ResetCaches: true})
 		if refreshErr == nil {
 			oauthKey.AccessToken = res.AccessToken
 			oauthKey.RefreshToken = res.RefreshToken
-			oauthKey.LastRefresh = time.Now().Format(time.RFC3339)
-			oauthKey.Expired = res.ExpiresAt.Format(time.RFC3339)
-			if strings.TrimSpace(oauthKey.Type) == "" {
-				oauthKey.Type = "codex"
-			}
-
-			encoded, encErr := common.Marshal(oauthKey)
-			if encErr == nil {
-				_ = model.DB.Model(&model.Channel{}).Where("id = ?", ch.Id).Update("key", string(encoded)).Error
-				model.InitChannelCache()
-				service.ResetProxyClientCache()
-			}
 
 			ctx2, cancel2 := context.WithTimeout(c.Request.Context(), 15*time.Second)
 			defer cancel2()
-			statusCode, body, err = service.FetchCodexWhamUsage(ctx2, client, baseURL, oauthKey.AccessToken, accountID)
+			statusCode, body, err = service.FetchCodexWhamUsage(ctx2, client, baseURL, oauthKey.AccessToken, accountID, profile)
 			if err != nil {
 				common.SysError("failed to fetch codex usage after refresh: " + err.Error())
 				c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取用量信息失败，请稍后重试"})

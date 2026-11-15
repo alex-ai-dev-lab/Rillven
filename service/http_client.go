@@ -23,6 +23,7 @@ import (
 
 type HTTPClientOptions struct {
 	Proxy                 string
+	EgressPolicy          string
 	TLSInsecureSkipVerify bool
 	HTTPProtocol          string
 	HTTP2ConnectionShards int
@@ -132,6 +133,12 @@ func GetSSRFProtectedHTTPClientWithOptions(options HTTPClientOptions) (*http.Cli
 // be disabled by global fetch settings. Environment proxies are opt-in.
 func NewStrictSSRFHTTPClient(options StrictSSRFHTTPClientOptions) (*http.Client, error) {
 	clientOptions := normalizeHTTPClientOptions(options.HTTPClientOptions)
+	if err := validateHTTPEgress(clientOptions); err != nil {
+		return nil, err
+	}
+	if clientOptions.EgressPolicy == "direct" && options.UseEnvironmentProxy {
+		return nil, errors.New("direct egress cannot use environment proxies")
+	}
 	if clientOptions.Proxy != "" && options.UseEnvironmentProxy {
 		return nil, fmt.Errorf("explicit and environment proxy policies are mutually exclusive")
 	}
@@ -215,6 +222,7 @@ func GetHttpClientWithProxy(proxyURL string) (*http.Client, error) {
 func HTTPClientOptionsFromChannelSettings(settings dto.ChannelSettings) HTTPClientOptions {
 	return HTTPClientOptions{
 		Proxy: settings.Proxy, TLSInsecureSkipVerify: settings.TLSInsecureSkipVerify,
+		EgressPolicy: settings.EgressPolicy,
 		HTTPProtocol: settings.HTTPProtocol, HTTP2ConnectionShards: settings.HTTP2ConnectionShards,
 	}
 }
@@ -229,6 +237,9 @@ func GetHttpClientWithOptions(options HTTPClientOptions) (*http.Client, error) {
 
 func getCachedHTTPClient(options HTTPClientOptions, protected bool) (*http.Client, error) {
 	options = normalizeHTTPClientOptions(options)
+	if err := validateHTTPEgress(options); err != nil {
+		return nil, err
+	}
 	proxyClientLock.Lock()
 	defer proxyClientLock.Unlock()
 	cache, defaultClient, create := proxyClients, &httpClient, NewHttpClientWithOptions
@@ -360,7 +371,13 @@ func NewHttpClientWithOptions(options HTTPClientOptions) (*http.Client, error) {
 
 func NewWebSocketDialerWithOptions(options HTTPClientOptions) (*websocket.Dialer, error) {
 	options = normalizeHTTPClientOptions(options)
+	if err := validateHTTPEgress(options); err != nil {
+		return nil, err
+	}
 	dialer := *websocket.DefaultDialer
+	if options.EgressPolicy == "direct" {
+		dialer.Proxy = nil
+	}
 	if options.Proxy != "" {
 		parsedURL, err := parseProxyURL(options.Proxy)
 		if err != nil {
@@ -397,7 +414,7 @@ func normalizeHTTPClientOptions(options HTTPClientOptions) HTTPClientOptions {
 }
 
 func isDefaultHTTPClientOptions(options HTTPClientOptions) bool {
-	return options.Proxy == "" && !options.TLSInsecureSkipVerify &&
+	return (options.EgressPolicy == "" || options.EgressPolicy == "inherit") && options.Proxy == "" && !options.TLSInsecureSkipVerify &&
 		options.HTTPProtocol == dto.HTTPProtocolAuto && options.HTTP2ConnectionShards == 1 && !options.LongStream
 }
 
@@ -421,6 +438,9 @@ func configureLongStreamHTTP2(transport *http.Transport, readIdle, pingTimeout t
 
 func newHTTPTransportWithOptions(options HTTPClientOptions) (*http.Transport, error) {
 	options = normalizeHTTPClientOptions(options)
+	if err := validateHTTPEgress(options); err != nil {
+		return nil, err
+	}
 	dialTimeout := boundedHTTPTimeout(common.RelayDialTimeout, 30)
 	tlsTimeout := boundedHTTPTimeout(common.RelayTLSHandshakeTimeout, 10)
 	idleTimeout := boundedHTTPTimeout(common.RelayIdleConnTimeout, 90)
@@ -434,7 +454,9 @@ func newHTTPTransportWithOptions(options HTTPClientOptions) (*http.Transport, er
 		DialContext:           netDialer.DialContext,
 		ForceAttemptHTTP2:     true,
 	}
-	if options.Proxy == "" {
+	if options.EgressPolicy == "direct" {
+		transport.Proxy = nil
+	} else if options.Proxy == "" {
 		transport.Proxy = http.ProxyFromEnvironment // Support HTTP_PROXY, HTTPS_PROXY, NO_PROXY env vars
 	} else {
 		parsedURL, err := parseProxyURL(options.Proxy)
@@ -462,6 +484,22 @@ func newHTTPTransportWithOptions(options HTTPClientOptions) (*http.Transport, er
 	}
 	applyHTTPTransportPolicy(transport, normalizeHTTPTransportPolicy(options.HTTPProtocol, options.HTTP2ConnectionShards))
 	return transport, nil
+}
+
+func validateHTTPEgress(options HTTPClientOptions) error {
+	switch options.EgressPolicy {
+	case "", "inherit":
+		return nil
+	case "proxy":
+		if options.Proxy != "" {
+			return nil
+		}
+	case "direct":
+		if options.Proxy == "" {
+			return nil
+		}
+	}
+	return errors.New("outbound proxy configuration conflicts with the egress policy")
 }
 
 func boundedHTTPTimeout(seconds int, fallback int) time.Duration {

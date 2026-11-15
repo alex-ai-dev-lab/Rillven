@@ -177,4 +177,28 @@ The reviewed range contains 133 commits from the previous audit ref `4e570389dd4
 
 本地复审补修客户端重建竞态、长窗口预算清理，以及 Redis/内存并发槽释放错配和长请求租约过期，另消除 MiniMax 测试竞态。这些为 RenewAPI 既有调用链缺口，没有新增上游来源或推进完整审计基线；其余 DEFERRED 功能/依赖项仍未导入。源码、测试、性能成本及发布前排空旧并发槽协议的要求见[复审报告](docs/audits/2026-10-integration-review.md)、ADR-021。
 
+### 2026-11-15 定价、工具、身份与托管会话实施
+
+固定 NewAPI `b388140acf`、Sub2API `530c5e3a4f`、CPA `e96d4c4818`、LiteLLM `e38187324a`、james-6-23/codex2api `41e8d86bf0`，额外官方 Codex `b7056f3408`。调查保存 47 份候选提交详情，补读关键实现/调用点/测试及 21 个路径历史。完整 SHA 和源码链接见[初查](docs/audits/2026-11-pricing-tools-upstream-plan.md)、[身份专项](docs/audits/2026-11-client-identity-account-protection-review.md)。
+
+用户随后授权源码实施；下面处置为本地未提交结果，没有发布或部署，不推进顶部完整历史审计基线。验证与具体边界见[实施验收](docs/audits/2026-11-managed-recovery-implementation.md)和 [ADR-023](docs/decisions/023-managed-conversation-recovery.md)。
+
+| 来源 / 行为 | 判定 | 本地结果 |
+| --- | --- | --- |
+| NewAPI `72f3dc7daa` / `e3e74205fe`，编辑器提交与定价引导 | ADAPTED | 本地独立实现统一快照保存、改名保护、失败保留及可达布局；真实浏览器保存、刷新和双击回归通过。 |
+| CPA `2443e8830c`，LiteLLM `8207a57d84` / `9fb29c7e38`，codex2api `f21adb5a55` / `f8dd147e79`，工具表达能力 | ADAPTED | Responses malformed 与协议不可表达分开；符合权限和显式端点约束时原生回退。function/custom/namespace 历史与 WS 故障迁移保持 call ID；未采用有损转换扩大支持范围。 |
+| Sub2API account identity、codex2api Claude 隔离、CPA CLI profile | ADAPTED | 每渠道加密种子/凭据稳定 slot；调用者/session 单独投影，HTTP/WS/body/header 及已保存渠道维护同源。全局共享 session 不作为新默认。 |
+| Sub2API `c591412c42`，codex2api `4256e36d64` / `246163817e`，官方客户端/WS | ADAPTED | 明确 profile/version 与协议边界，保持已有默认 UA 版本，不从第三方快照盲目升级版本或随机拼客户端信息。 |
+| CPA `68cd75724e` / `1f5bf2a569` 与 codex2api OAuth lease | ADAPTED | 独立实现共享 grant journal、加密 rotation receipt、锁后重读和 key/config version CAS；sent 后未知结果不重放，取消后仍保存已收到结果。 |
+| codex2api account-bound egress | ADAPTED | HTTP/WS/维护显式 inherit/direct/proxy，必需代理失败不静默直连；不复制其他项目存在边界缺口的 HTTPS/uTLS helper。 |
+| CPA `5a351d9570` / `e96d4c4818`、LiteLLM cooldown、NewAPI 手工禁用保护 | ADAPTED | 本地状态/容量/资金失败不处罚上游；较老成功保留新冷却和手工禁用；账户/模型/显式代理分别协调，避免模糊 403 停全池。覆盖旧 U04 的迟到成功部分。 |
+| codex2api `df3a72f712` / `f992fecf61` FIFO、Sub2API 额度窗口 | ADAPTED | 同账户 SQL FIFO/租约及通用剩余额度/reset headers 已接入。原 F02 厂商特有 WHAM 窗口、别名归一及完整采集调度仍 DEFERRED，不把这部分称为全覆盖。 |
+| Sub2API response 归属、CPA affinity/rebind、codex2api continuation、LiteLLM caller session | ADAPTED | 独立实现 owner 隔离的加密不可变响应图、逻辑 ID、HTTP/SSE/WS 共享恢复、原生增量及可重放历史迁移；不复制授权未确认的 codex2api 源码。 |
+| 方案 P5 资源/TLS 扩展 | DEFERRED | 自动目标重压缩、私有 Files/container/未知 item_reference 搬迁及 uTLS 试点尚未实现；严格绑定或明确失败，不截断/伪造历史。 |
+| NewAPI `9823ebc7ea` / `651d5a213f` 用量明细、其他 metadata/cache/schema 候选 | DEFERRED | 与本次核心修复无直接依赖的候选没有全部导入；旧功能候选仍按原台账保留。 |
+| NewAPI `30748c6558` 查询凭据日志 | ALREADY_PRESENT | 本地访问日志只记录 EscapedPath，不记录该路径 query。 |
+| Redis 失效降级本地 rotating-grant 锁、随机 SDK/runtime、伪造遥测 | REJECTED | 不提供跨实例一致性或协议正确性；不作为身份隔离方案。 |
+
+验证包括 Go/前端门禁、四外部数据库、30 组资金/上下文进程崩溃恢复和浏览器真实保存。未运行各参考项目全套测试，未验证生产防封禁效果。
+
 Run `scripts/check-upstream.ps1` or `scripts/check-upstream.sh`. The scripts read `Audited-Upstream-Ref`, list only later upstream commits, and refuse merge/rebase while histories remain unrelated. After review, add each imported or rejected item here and advance the audited ref only when the complete range has been classified.

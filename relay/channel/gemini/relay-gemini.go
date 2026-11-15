@@ -1686,10 +1686,14 @@ func FetchGeminiModels(baseURL, apiKey, proxyURL string, tlsInsecureSkipVerify .
 }
 
 func FetchGeminiModelsContext(ctx context.Context, baseURL, apiKey, proxyURL string, tlsInsecureSkipVerify ...bool) ([]string, error) {
-	client, err := service.GetHttpClientWithOptions(service.HTTPClientOptions{
+	return FetchGeminiModelsWithOptions(ctx, baseURL, apiKey, service.HTTPClientOptions{
 		Proxy:                 proxyURL,
 		TLSInsecureSkipVerify: len(tlsInsecureSkipVerify) > 0 && tlsInsecureSkipVerify[0],
 	})
+}
+
+func FetchGeminiModelsWithOptions(ctx context.Context, baseURL, apiKey string, options service.HTTPClientOptions) ([]string, error) {
+	client, err := service.GetHttpClientWithOptions(options)
 	if err != nil {
 		return nil, fmt.Errorf("创建HTTP客户端失败: %v", err)
 	}

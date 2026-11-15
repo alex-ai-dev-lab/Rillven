@@ -93,7 +93,7 @@ var responsesWSEngine = sync.OnceValue(func() *gin.Engine {
 	_ = engine.SetTrustedProxies(nil)
 	engine.Use(gin.CustomRecovery(func(c *gin.Context, _ any) { c.AbortWithStatus(http.StatusInternalServerError) }))
 	engine.POST("/v1/responses", middleware.BodyStorageCleanup(), middleware.RequestId(), middleware.SystemPerformanceCheck(),
-		middleware.TokenAuth(), middleware.TokenRequestLimit(), middleware.ModelRequestRateLimit(), middleware.Distribute(), func(c *gin.Context) {
+		middleware.TokenAuth(), middleware.TokenRequestLimit(), middleware.ModelRequestRateLimit(), middleware.ConversationContext(), middleware.Distribute(), func(c *gin.Context) {
 			turn := c.Request.Context().Value(responsesWSTurnKey{}).(*responsesWSTurn)
 			turn.requestID = c.GetString(common.RequestIdKey)
 			if turn.event.warmup {

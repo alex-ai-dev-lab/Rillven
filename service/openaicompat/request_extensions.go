@@ -41,7 +41,7 @@ func ValidateResponsesBridgeParameters(req *dto.OpenAIResponsesRequest, target c
 		return nil
 	}
 	if req.TopLogProbs != nil {
-		return fmt.Errorf("Responses field top_logprobs is not supported by the %s response bridge", target)
+		return unsupportedProtocolConversion("Responses field top_logprobs is not supported by the %s response bridge", target)
 	}
 	if target == constant.EndpointTypeAnthropic {
 		for _, field := range []struct {
@@ -53,7 +53,7 @@ func ValidateResponsesBridgeParameters(req *dto.OpenAIResponsesRequest, target c
 			{"prompt_cache_options", req.PromptCacheOptions},
 		} {
 			if len(field.raw) > 0 && string(field.raw) != "null" {
-				return fmt.Errorf("Responses field %s cannot be represented by Messages", field.name)
+				return unsupportedProtocolConversion("Responses field %s cannot be represented by Messages", field.name)
 			}
 		}
 	}

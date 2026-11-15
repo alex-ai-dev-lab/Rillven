@@ -42,7 +42,7 @@ func RunClientIdentityRotationWorker(ctx context.Context) {
 // checkAndRotateClientIdentity 检查并轮换客户端标识符
 func checkAndRotateClientIdentity() {
 	setting := model.GetClientIdentitySetting()
-	if !setting.Enabled {
+	if !setting.Enabled || setting.Scope != "" && setting.Scope != "legacy" && setting.Scope != "shadow" {
 		return
 	}
 

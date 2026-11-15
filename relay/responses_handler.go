@@ -15,6 +15,7 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/service/openaicompat"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -54,6 +55,11 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 	}
 	isCompactionRelated := info.ResponsesRequestKind != dto.ResponsesNormal
 
+	if endpoint, rewrite := service.ShouldUseModelDefaultTextEndpointForResponses(info); rewrite && info.ProtocolNormalized {
+		if capabilityErr := service.ValidateNormalizedBridgeRequest(request, endpoint); openaicompat.IsUnsupportedProtocolConversion(capabilityErr) {
+			useNativeResponsesProtocolFallback(c, info)
+		}
+	}
 	if endpoint, ok := service.ShouldUseModelDefaultTextEndpointForResponses(info); ok {
 		if info.RelayMode == relayconstant.RelayModeResponsesCompact {
 			return types.NewErrorWithStatusCode(
@@ -68,6 +74,9 @@ func ResponsesHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *
 			validate = func(r *dto.OpenAIResponsesRequest) error { return service.ValidateNormalizedBridgeRequest(r, endpoint) }
 		}
 		if capabilityErr := validate(request); capabilityErr != nil {
+			if openaicompat.IsUnsupportedProtocolConversion(capabilityErr) {
+				return types.NewRequestProtocolUnsupportedError(capabilityErr)
+			}
 			return types.NewErrorWithStatusCode(capabilityErr, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 		}
 		if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {

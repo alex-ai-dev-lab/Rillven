@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -278,6 +279,15 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 
 	// Compat hook: OnInit (detects features like encrypted reasoning, claude thinking)
+	if contextErr := service.ActivateConversation(c, relayInfo); contextErr != nil {
+		newAPIError = contextErr
+		return
+	}
+	if turn := service.GetConversationTurn(c); turn != nil && turn.Managed {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Minute)
+		defer cancel()
+		c.Request = c.Request.WithContext(ctx)
+	}
 	if err := compat.Hooks().OnInit(c, relayInfo); err != nil {
 		service.SetModelRouteOutcome(c, service.ModelRouteOutcomeClientRejected)
 		newAPIError = types.NewError(err, types.ErrorCodeGenRelayInfoFailed)
@@ -367,7 +377,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		// Only return quota if downstream failed and quota was actually pre-consumed
 		if newAPIError != nil {
 			newAPIError = service.NormalizeViolationFeeError(newAPIError)
-			if relayInfo.Billing != nil {
+			if relayInfo.Billing != nil && !relayInfo.SettlementStarted && (relayInfo.Conversation == nil || !relayInfo.Conversation.CommitPrepared()) {
 				relayInfo.Billing.Refund(c)
 			}
 			service.ChargeViolationFeeIfNeeded(c, relayInfo, newAPIError)
@@ -600,9 +610,17 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 				relayInfo.ClaudeConvertInfo = &relaycommon.ClaudeConvertInfo{LastMessagesType: relaycommon.LastMessageTypeNone}
 			}
 			c.Set(common.UpstreamRequestIdKey, "")
+			relayInfo.AttemptStartedAt = time.Now()
+			relayInfo.SettlementError = nil
 
-			newAPIError = helper.WithStreamStaging(c, relayInfo, func() *types.NewAPIError {
-				return relayDispatchUpstream(c, relayInfo, relayFormat, ws)
+			if contextErr := service.BeginConversationAttempt(c, relayInfo); contextErr != nil {
+				newAPIError = contextErr
+				break
+			}
+			newAPIError = service.WithUpstreamAdmission(c, relayInfo, func() *types.NewAPIError {
+				return helper.WithStreamStaging(c, relayInfo, func() *types.NewAPIError {
+					return relayDispatchUpstream(c, relayInfo, relayFormat, ws)
+				})
 			})
 
 			if newAPIError == nil {
@@ -630,6 +648,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			}
 
 			if newAPIError == nil {
+				service.CompleteConversationDelivery(c)
 				capabilityOutcome := service.ObserveResponsesCapabilityAttempt(
 					channel,
 					relayInfo.OriginModelName,
@@ -654,8 +673,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 				if !capabilityOutcome.Related {
 					clearCompatChannelFailure(channel.Id, relayInfo)
 					service.ClearRouterCooldown(channel.Id, relayInfo)
-					service.ClearChannelConsecutiveFailure(channel.Id, relayInfo.OriginModelName)
-					service.RecordChannelModelSuccess(channel.Id, relayInfo.UsingGroup, relayInfo.OriginModelName, relayModeName(relayInfo.RelayMode), relayInfo.RequestId)
+					service.ClearChannelConsecutiveFailure(channel.Id, relayInfo.OriginModelName, relayInfo.AttemptStartedAt)
+					service.RecordChannelModelSuccess(channel.Id, relayInfo.UsingGroup, relayInfo.OriginModelName, relayModeName(relayInfo.RelayMode), relayInfo.RequestId, relayInfo.AttemptStartedAt)
 					firstByteLatency := relayInfo.FirstResponseTime.Sub(relayInfo.StartTime)
 					if firstByteLatency < 0 {
 						firstByteLatency = 0
@@ -669,7 +688,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			relayInfo.LastError = newAPIError
 			// Planned compact routes and explicit bindings retain their exact route
 			// semantics. Ordinary mapping targets retry without reselecting credentials.
-			if !route.StrictPreferredChannel && retryNextMappedModelCandidate(c, relayInfo, retryParam, channel, newAPIError) {
+			if service.ConversationCanRetry(c, newAPIError) && !route.StrictPreferredChannel && retryNextMappedModelCandidate(c, relayInfo, retryParam, channel, newAPIError) {
 				mappedCandidateChannel = channel
 				continue
 			}
@@ -790,6 +809,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			if _, pinned := c.Get("specific_channel_id"); pinned {
 				finalShouldRetry = false
 			}
+			if !service.ConversationCanRetry(c, newAPIError) {
+				finalShouldRetry, streamRecoveryAdvanceRoute = false, false
+			}
+			if relayInfo.SettlementStarted {
+				finalShouldRetry, streamRecoveryAdvanceRoute = false, false
+			}
 			if streamRecoveryFailure {
 				switch {
 				case finalShouldRetry:
@@ -825,7 +850,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if newAPIError == nil {
 			break
 		}
-		if relayInfo.Failover.CanAttempt() && routePlan.HasNext() && (streamRecoveryAdvanceRoute || compactCapabilityUnsupported || shouldTryNextFallbackModel(c, newAPIError)) {
+		if !relayInfo.SettlementStarted && service.ConversationCanRetry(c, newAPIError) && relayInfo.Failover.CanAttempt() && routePlan.HasNext() && (streamRecoveryAdvanceRoute || compactCapabilityUnsupported || shouldTryNextFallbackModel(c, newAPIError)) {
 			if relayInfo.ClientResponseCommitted() || c.Writer.Written() || c.Request.Context().Err() != nil {
 				break
 			}
@@ -1085,6 +1110,10 @@ func prepareEncryptedReasoningRetryBody(c *gin.Context, info *relaycommon.RelayI
 	if c == nil || info == nil || channel == nil || !info.EncryptedReasoningScrubFallback {
 		return nil
 	}
+	if turn := service.GetConversationTurn(c); turn != nil && turn.Managed {
+		// The managed attempt reconstructs verified history and enforces ownership.
+		return nil
+	}
 	req, ok := info.Request.(*dto.OpenAIResponsesRequest)
 	if !ok {
 		return nil
@@ -1106,6 +1135,9 @@ func prepareEncryptedReasoningRetryBody(c *gin.Context, info *relaycommon.RelayI
 		)
 	}
 
+	if service.ResponsesRequestNeedsContextRecovery(req) {
+		return types.NewConversationContextUnavailable()
+	}
 	result := service.ScrubEncryptedReasoningRequest(req)
 	if !result.Changed {
 		return nil
@@ -1942,6 +1974,12 @@ func recordRelayErrorLog(c *gin.Context, riskChannelId int, err *types.NewAPIErr
 		adminInfo["request_normalization"] = actions
 	}
 	adminInfo["real_error"] = common.RedactErrorCredentials(err.Error(), common.GetContextKeyString(c, constant.ContextKeyChannelKey))
+	if c.Request != nil {
+		if execution := relaycommon.GetResponsesWSExecution(c.Request.Context()); execution != nil && execution.SettlementError != nil {
+			adminInfo["billing_error"] = common.RedactErrorCredentials(execution.SettlementError.Error(), common.GetContextKeyString(c, constant.ContextKeyChannelKey))
+			other["failure_scope"] = "billing"
+		}
+	}
 	if state, ok := c.Get(relaycommon.ChannelFailoverContextKey); ok {
 		adminInfo["attempts"] = state.(*relaycommon.ChannelFailoverState).AttemptRecords
 	}

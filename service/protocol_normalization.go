@@ -128,7 +128,7 @@ func validateNormalizedResponsesInput(raw []byte) error {
 			switch kind {
 			case "", "message", "input_text", "output_text", "text", "input_image", "function_call", "function_call_output":
 			default:
-				return fmt.Errorf("unsupported Responses input type %q", kind)
+				return openaicompat.UnsupportedProtocolFeature("unsupported Responses input type %q", kind)
 			}
 			if err := visit(item["content"]); err != nil {
 				return err

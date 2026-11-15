@@ -38,6 +38,9 @@ func compatChannelFailureKey(channelID int, info *relaycommon.RelayInfo) string 
 func clearCompatChannelFailure(channelID int, info *relaycommon.RelayInfo) {
 	compatChannelFailureTracker.Lock()
 	defer compatChannelFailureTracker.Unlock()
+	if info != nil && !info.AttemptStartedAt.IsZero() && compatChannelFailureTracker.items[compatChannelFailureKey(channelID, info)].lastFailure.After(info.AttemptStartedAt) {
+		return
+	}
 	delete(compatChannelFailureTracker.items, compatChannelFailureKey(channelID, info))
 }
 
@@ -60,6 +63,9 @@ func recordCompatChannelFailure(channelID int, info *relaycommon.RelayInfo) int 
 
 func shouldTrackCompatUpstream5xxFailure(openaiErr *types.NewAPIError) bool {
 	if openaiErr == nil {
+		return false
+	}
+	if types.IsGatewayCoordinationError(openaiErr) {
 		return false
 	}
 	if service.IsTLSVerificationError(openaiErr) || service.IsInvalidEncryptedReasoningError(openaiErr) {

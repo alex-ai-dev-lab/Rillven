@@ -339,6 +339,12 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.priority ||
     values.weight ||
     values.proxy?.trim() ||
+    (values.egress_policy && values.egress_policy !== 'inherit') ||
+    (values.client_identity_mode &&
+      values.client_identity_mode !== 'inherit') ||
+    (values.conversation_recovery && values.conversation_recovery !== 'off') ||
+    values.stream_commit_mode === 'atomic_turn' ||
+    values.upstream_coordination ||
     values.system_prompt?.trim() ||
     values.force_format ||
     values.thinking_to_content ||
@@ -3760,7 +3766,10 @@ export function ChannelMutateDrawer({
                             </div>
                           </div>
 
-                          <RenewChannelSettings form={form} />
+                          <RenewChannelSettings
+                            channelId={channelId ?? undefined}
+                            form={form}
+                          />
                           <ChannelRoutePreview
                             channelId={channelId ?? undefined}
                           />

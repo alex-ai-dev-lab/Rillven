@@ -1387,6 +1387,12 @@ func (channel *Channel) ValidateSettings() error {
 	if err := channelParams.ValidateHTTPTransport(); err != nil {
 		return err
 	}
+	if channelParams.ClientIdentityMode == "per_channel" || channelParams.ClientIdentityMode == "shadow" ||
+		channelParams.ConversationRecovery == "managed" || channelParams.ConversationRecovery == "shadow" {
+		if _, err := common.RelayStateCipher(); err != nil {
+			return err
+		}
+	}
 	seenTargets := make(map[string]struct{}, len(channelParams.ModelProtocolOverrideTargets))
 	for _, target := range channelParams.ModelProtocolOverrideTargets {
 		target = strings.TrimSpace(target)

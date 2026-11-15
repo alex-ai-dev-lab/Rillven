@@ -141,7 +141,7 @@ func GetResponseBody(method, url string, channel *model.Channel, headers http.He
 	return GetResponseBodyContext(context.Background(), method, url, channel, headers)
 }
 
-func GetResponseBodyContext(ctx context.Context, method, url string, channel *model.Channel, headers http.Header) ([]byte, error) {
+func GetResponseBodyContext(ctx context.Context, method, url string, channel *model.Channel, headers http.Header, selectedCredential ...string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, url, nil)
 	if err != nil {
 		return nil, err
@@ -150,10 +150,14 @@ func GetResponseBodyContext(ctx context.Context, method, url string, channel *mo
 		req.Header.Add(k, headers.Get(k))
 	}
 	setting := channel.GetSetting()
-	client, err := service.GetHttpClientWithOptions(service.HTTPClientOptions{
-		Proxy:                 setting.Proxy,
-		TLSInsecureSkipVerify: setting.TLSInsecureSkipVerify,
-	})
+	profile, err := service.ChannelMaintenanceHeaders(ctx, channel, selectedCredential...)
+	if err != nil {
+		return nil, err
+	}
+	for key, values := range profile {
+		req.Header[key] = append([]string(nil), values...)
+	}
+	client, err := service.GetHttpClientWithChannelSettings(setting)
 	if err != nil {
 		return nil, err
 	}
@@ -161,14 +165,11 @@ func GetResponseBodyContext(ctx context.Context, method, url string, channel *mo
 	if err != nil {
 		return nil, err
 	}
+	defer res.Body.Close()
 	if res.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status code: %d", res.StatusCode)
 	}
 	body, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-	err = res.Body.Close()
 	if err != nil {
 		return nil, err
 	}

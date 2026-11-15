@@ -18,7 +18,7 @@ import (
 
 const (
 	codexCredentialRefreshTickInterval = 10 * time.Minute
-	codexCredentialRefreshThreshold    = 24 * time.Hour
+	codexCredentialRefreshThreshold    = 15 * time.Minute
 	codexCredentialRefreshBatchSize    = 200
 	codexCredentialRefreshTimeout      = 15 * time.Second
 )

@@ -16,10 +16,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { memo, useCallback, useState } from 'react'
+import {
+  memo,
+  useCallback,
+  useRef,
+  useState,
+  useImperativeHandle,
+  type Ref,
+} from 'react'
 import { type UseFormReturn } from 'react-hook-form'
 import { Code2, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -38,6 +46,11 @@ import {
   SettingsSwitchItem,
 } from '../components/settings-form-layout'
 import { SettingsPageActionsPortal } from '../components/settings-page-context'
+import { mergePricingDraft } from './model-pricing-draft'
+import type {
+  ModelPricingEditorHandle,
+  ModelRatioData,
+} from './model-pricing-sheet'
 import { ModelRatioVisualEditor } from './model-ratio-visual-editor'
 
 type ModelFormValues = {
@@ -55,6 +68,7 @@ type ModelFormValues = {
 }
 
 type ModelRatioFormProps = {
+  draftRef?: Ref<{ stage(): Promise<boolean> }>
   form: UseFormReturn<ModelFormValues>
   onSave: (values: ModelFormValues) => Promise<void>
   onReset: () => void
@@ -63,6 +77,7 @@ type ModelRatioFormProps = {
 }
 
 export const ModelRatioForm = memo(function ModelRatioForm({
+  draftRef,
   form,
   onSave,
   onReset,
@@ -71,6 +86,70 @@ export const ModelRatioForm = memo(function ModelRatioForm({
 }: ModelRatioFormProps) {
   const { t } = useTranslation()
   const [editMode, setEditMode] = useState<'visual' | 'json'>('visual')
+  const editorRef = useRef<ModelPricingEditorHandle>(null)
+  const submitting = useRef(false)
+  const [submittingEditor, setSubmittingEditor] = useState(false)
+
+  const prepareSnapshot = useCallback(
+    async (edited?: ModelRatioData) => {
+      const active = edited ?? (await editorRef.current?.snapshot())
+      if (active === null) return null
+      const snapshot = active
+        ? mergePricingDraft(form.getValues(), active)
+        : form.getValues()
+      for (const [key, value] of Object.entries(snapshot)) {
+        form.setValue(key as keyof ModelFormValues, value, {
+          shouldDirty: true,
+        })
+      }
+      // The parent now owns the renamed draft, including after a failed save.
+      // A subsequent snapshot must not mistake that same draft for a collision.
+      editorRef.current?.markStaged()
+      return (await form.trigger()) ? snapshot : null
+    },
+    [form]
+  )
+
+  const stagePricing = useCallback(async () => {
+    try {
+      return !!(await prepareSnapshot())
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? t(error.message)
+          : t('Invalid model pricing JSON')
+      )
+      return false
+    }
+  }, [prepareSnapshot, t])
+
+  useImperativeHandle(draftRef, () => ({ stage: stagePricing }), [stagePricing])
+
+  const saveAll = useCallback(
+    async (edited?: ModelRatioData) => {
+      if (submitting.current || isSaving) return false
+      submitting.current = true
+      setSubmittingEditor(true)
+      try {
+        const snapshot = await prepareSnapshot(edited)
+        if (!snapshot) return false
+        await onSave(snapshot)
+        return true
+      } catch (error) {
+        toast.error(
+          error instanceof Error
+            ? t(error.message)
+            : t('Failed to save settings'),
+          { id: 'system-settings-mutation' }
+        )
+        return false
+      } finally {
+        submitting.current = false
+        setSubmittingEditor(false)
+      }
+    },
+    [isSaving, onSave, prepareSnapshot, t]
+  )
 
   const handleFieldChange = useCallback(
     (field: keyof ModelFormValues, value: string) => {
@@ -82,12 +161,21 @@ export const ModelRatioForm = memo(function ModelRatioForm({
     [form]
   )
 
-  const toggleEditMode = useCallback(() => {
-    setEditMode((prev) => (prev === 'visual' ? 'json' : 'visual'))
-  }, [])
+  const toggleEditMode = useCallback(async () => {
+    try {
+      if (await prepareSnapshot())
+        setEditMode((prev) => (prev === 'visual' ? 'json' : 'visual'))
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? t(error.message)
+          : t('Invalid model pricing JSON')
+      )
+    }
+  }, [prepareSnapshot, t])
 
   return (
-    <div className='space-y-6'>
+    <div className='space-y-6' inert={isSaving || submittingEditor}>
       <div className='flex justify-end'>
         <Button variant='outline' size='sm' onClick={toggleEditMode}>
           {editMode === 'visual' ? (
@@ -111,15 +199,15 @@ export const ModelRatioForm = memo(function ModelRatioForm({
             variant='destructive'
             size='sm'
             onClick={onReset}
-            disabled={isResetting}
+            disabled={isResetting || isSaving || submittingEditor}
           >
             {t('Reset prices')}
           </Button>
           <Button
             type='button'
             size='sm'
-            onClick={form.handleSubmit(onSave)}
-            disabled={isSaving}
+            onClick={() => void saveAll()}
+            disabled={isSaving || submittingEditor}
           >
             {isSaving ? t('Saving...') : t('Save model prices')}
           </Button>
@@ -127,6 +215,10 @@ export const ModelRatioForm = memo(function ModelRatioForm({
         {editMode === 'visual' ? (
           <div className='space-y-6'>
             <ModelRatioVisualEditor
+              editorRef={editorRef}
+              onSavePricing={saveAll}
+              onStagePricing={stagePricing}
+              isSaving={isSaving || submittingEditor}
               modelPrice={form.watch('ModelPrice')}
               modelRatio={form.watch('ModelRatio')}
               cacheRatio={form.watch('CacheRatio')}
@@ -172,7 +264,12 @@ export const ModelRatioForm = memo(function ModelRatioForm({
             />
           </div>
         ) : (
-          <SettingsForm onSubmit={form.handleSubmit(onSave)}>
+          <SettingsForm
+            onSubmit={(event) => {
+              event.preventDefault()
+              void saveAll()
+            }}
+          >
             <FormField
               control={form.control}
               name='ModelPrice'

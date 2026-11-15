@@ -273,10 +273,7 @@ func fetchChannelUpstreamModelIDsContext(ctx context.Context, channel *model.Cha
 	if channel.Type == constant.ChannelTypeOllama {
 		key := strings.TrimSpace(strings.Split(channel.Key, "\n")[0])
 		setting := channel.GetSetting()
-		models, err := ollama.FetchOllamaModelsContext(ctx, baseURL, key, service.HTTPClientOptions{
-			Proxy:                 setting.Proxy,
-			TLSInsecureSkipVerify: setting.TLSInsecureSkipVerify,
-		})
+		models, err := ollama.FetchOllamaModelsContext(ctx, baseURL, key, service.HTTPClientOptionsFromChannelSettings(setting))
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +289,7 @@ func fetchChannelUpstreamModelIDsContext(ctx context.Context, channel *model.Cha
 		}
 		key = strings.TrimSpace(key)
 		setting := channel.GetSetting()
-		models, err := gemini.FetchGeminiModelsContext(ctx, baseURL, key, setting.Proxy, setting.TLSInsecureSkipVerify)
+		models, err := gemini.FetchGeminiModelsWithOptions(ctx, baseURL, key, service.HTTPClientOptionsFromChannelSettings(setting))
 		if err != nil {
 			return nil, err
 		}
@@ -336,7 +333,7 @@ func fetchChannelUpstreamModelIDsContext(ctx context.Context, channel *model.Cha
 		return nil, err
 	}
 
-	body, err := GetResponseBodyContext(ctx, http.MethodGet, url, channel, headers)
+	body, err := GetResponseBodyContext(ctx, http.MethodGet, url, channel, headers, key)
 	if err != nil {
 		return nil, err
 	}

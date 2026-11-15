@@ -14,6 +14,7 @@ func FetchCodexWhamUsage(
 	baseURL string,
 	accessToken string,
 	accountID string,
+	profiles ...http.Header,
 ) (statusCode int, body []byte, err error) {
 	if client == nil {
 		return 0, nil, fmt.Errorf("nil http client")
@@ -38,6 +39,11 @@ func FetchCodexWhamUsage(
 	req.Header.Set("Authorization", "Bearer "+at)
 	req.Header.Set("chatgpt-account-id", aid)
 	req.Header.Set("Accept", "application/json")
+	for _, profile := range profiles {
+		for key, values := range profile {
+			req.Header[key] = append([]string(nil), values...)
+		}
+	}
 	if req.Header.Get("originator") == "" {
 		req.Header.Set("originator", "codex_cli_rs")
 	}

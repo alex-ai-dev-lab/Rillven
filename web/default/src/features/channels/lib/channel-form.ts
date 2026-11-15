@@ -179,6 +179,7 @@ export const channelFormSchema = z
     force_format: z.boolean().optional(),
     thinking_to_content: z.boolean().optional(),
     proxy: z.string().optional(),
+    egress_policy: z.enum(['inherit', 'direct', 'proxy']).optional(),
     tls_insecure_skip_verify: z.boolean().optional(),
     pass_through_body_enabled: z.boolean().optional(),
     system_prompt: z.string().optional(),
@@ -248,6 +249,14 @@ export const channelFormSchema = z
     anti_poison_canary_echo_enabled: z.boolean().optional(),
     anti_poison_shape_check_enabled: z.boolean().optional(),
     requires_codex_identity: z.enum(['auto', 'true', 'false']).optional(),
+    client_identity_mode: z
+      .enum(['inherit', 'legacy', 'disabled', 'per_channel', 'shadow'])
+      .optional(),
+    client_profile: z.enum(['inherit', 'codex', 'claude']).optional(),
+    client_version: z.string().optional(),
+    conversation_recovery: z.enum(['off', 'shadow', 'managed']).optional(),
+    upstream_coordination: z.boolean().optional(),
+    stream_commit_mode: z.enum(['realtime', 'atomic_turn']).optional(),
     responses_request_profile: z
       .enum(['auto', 'responses', 'codex'])
       .optional(),
@@ -407,6 +416,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   force_format: false,
   thinking_to_content: false,
   proxy: '',
+  egress_policy: 'inherit',
   tls_insecure_skip_verify: false,
   pass_through_body_enabled: false,
   system_prompt: '',
@@ -438,6 +448,12 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   anti_poison_shape_check_enabled: true,
   requires_codex_identity: 'auto',
   responses_request_profile: 'auto',
+  client_identity_mode: 'inherit',
+  client_profile: 'inherit',
+  client_version: '',
+  conversation_recovery: 'off',
+  upstream_coordination: false,
+  stream_commit_mode: 'realtime',
   responses_supports_max_output_tokens: 'auto',
   upstream_param_override: '',
   supports_claude_thinking: 'auto',
@@ -514,6 +530,13 @@ export function transformChannelToFormDefaults(
     | 'anti_poison_shape_check_enabled'
     | 'requires_codex_identity'
     | 'responses_request_profile'
+    | 'client_identity_mode'
+    | 'egress_policy'
+    | 'client_profile'
+    | 'client_version'
+    | 'conversation_recovery'
+    | 'upstream_coordination'
+    | 'stream_commit_mode'
     | 'responses_supports_max_output_tokens'
     | 'upstream_param_override'
     | 'supports_claude_thinking'
@@ -528,6 +551,7 @@ export function transformChannelToFormDefaults(
     force_format: false,
     thinking_to_content: false,
     proxy: '',
+    egress_policy: 'inherit',
     tls_insecure_skip_verify: false,
     pass_through_body_enabled: false,
     system_prompt: '',
@@ -559,6 +583,12 @@ export function transformChannelToFormDefaults(
     anti_poison_shape_check_enabled: true,
     requires_codex_identity: 'auto',
     responses_request_profile: 'auto',
+    client_identity_mode: 'inherit',
+    client_profile: 'inherit',
+    client_version: '',
+    conversation_recovery: 'off',
+    upstream_coordination: false,
+    stream_commit_mode: 'realtime',
     responses_supports_max_output_tokens: 'auto',
     upstream_param_override: '',
     supports_claude_thinking: 'auto',
@@ -578,6 +608,7 @@ export function transformChannelToFormDefaults(
         force_format: parsed.force_format || false,
         thinking_to_content: parsed.thinking_to_content || false,
         proxy: parsed.proxy || '',
+        egress_policy: parsed.egress_policy || 'inherit',
         tls_insecure_skip_verify: parsed.tls_insecure_skip_verify === true,
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
         system_prompt: parsed.system_prompt || '',
@@ -655,6 +686,12 @@ export function transformChannelToFormDefaults(
             ? (String(parsed.requires_codex_identity) as CodexIdentityMode)
             : 'auto',
         responses_request_profile: parsed.responses_request_profile || 'auto',
+        client_identity_mode: parsed.client_identity_mode || 'inherit',
+        client_profile: parsed.client_profile || 'inherit',
+        client_version: parsed.client_version || '',
+        conversation_recovery: parsed.conversation_recovery || 'off',
+        upstream_coordination: parsed.upstream_coordination || false,
+        stream_commit_mode: parsed.stream_commit_mode || 'realtime',
         responses_supports_max_output_tokens:
           typeof parsed.responses_supports_max_output_tokens === 'boolean'
             ? (String(parsed.responses_supports_max_output_tokens) as
@@ -790,6 +827,7 @@ function buildSettingJSON(formData: ChannelFormValues): string {
     force_format: formData.force_format || false,
     thinking_to_content: formData.thinking_to_content || false,
     proxy: formData.proxy || '',
+    egress_policy: formData.egress_policy || 'inherit',
     tls_insecure_skip_verify: formData.tls_insecure_skip_verify === true,
     pass_through_body_enabled: formData.pass_through_body_enabled || false,
     system_prompt: formData.system_prompt || '',
@@ -841,6 +879,12 @@ function buildSettingJSON(formData: ChannelFormValues): string {
   }
   settingObj.responses_request_profile =
     formData.responses_request_profile || 'auto'
+  settingObj.client_identity_mode = formData.client_identity_mode || 'inherit'
+  settingObj.client_profile = formData.client_profile || 'inherit'
+  settingObj.client_version = formData.client_version || ''
+  settingObj.conversation_recovery = formData.conversation_recovery || 'off'
+  settingObj.upstream_coordination = formData.upstream_coordination || false
+  settingObj.stream_commit_mode = formData.stream_commit_mode || 'realtime'
   if (
     formData.responses_supports_max_output_tokens !== 'auto' &&
     formData.responses_supports_max_output_tokens !== undefined

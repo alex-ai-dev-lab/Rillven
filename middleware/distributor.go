@@ -170,6 +170,9 @@ func Distribute() func(c *gin.Context) {
 
 				preferredChannelID, found := service.GetPreferredChannelByCompactionAffinity(c, clientModel, usingGroup)
 				preferredByCompactionAffinity := found
+				if managed := service.ConversationPreferredChannel(c); managed > 0 {
+					preferredChannelID, found, preferredByCompactionAffinity = managed, true, true
+				}
 				if channel == nil && !found {
 					preferredChannelID, found = service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup)
 				}
@@ -999,6 +1002,7 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		return types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
 	common.SetContextKey(c, constant.ContextKeyChannelId, channel.Id)
+	c.Set("selected_channel_config_version", channel.ConfigVersion)
 	common.SetContextKey(c, constant.ContextKeyChannelName, channel.Name)
 	common.SetContextKey(c, constant.ContextKeyChannelType, resolvedChannelType)
 	common.SetContextKey(c, constant.ContextKeyChannelRouteEndpoint, string(routeDecision.Endpoint))
@@ -1023,6 +1027,9 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	common.SetContextKey(c, constant.ContextKeyChannelStatusCodeMapping, channel.GetStatusCodeMapping())
 
 	key, index, usedAffinityKey, newAPIError := service.ResolveChannelAffinityMultiKey(c, channel)
+	if managedKey, managedIndex, found := service.ResolveConversationCredential(c, channel); found {
+		key, index, usedAffinityKey, newAPIError = managedKey, managedIndex, true, nil
+	}
 	if !usedAffinityKey && newAPIError == nil {
 		key, index, newAPIError = channel.GetNextEnabledKey()
 	}

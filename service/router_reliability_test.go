@@ -85,6 +85,29 @@ func TestRouterCooldownUsesBoundedRetryHint(t *testing.T) {
 	require.Equal(t, 2*time.Minute, state.CooldownUntil.Sub(state.LastFailure))
 }
 
+func TestRouterCooldownLateSuccessCannotClearNewerFailure(t *testing.T) {
+	t.Setenv("ROUTER_COOLDOWN_ENABLED", "true")
+	t.Setenv("ROUTER_COOLDOWN_THRESHOLD", "1")
+	resetRouterCooldownTrackerForTest()
+	info := &relaycommon.RelayInfo{OriginModelName: "test", RelayMode: 1, AttemptStartedAt: time.Now().Add(-time.Minute)}
+	failure := types.NewOpenAIError(errors.New("rate limited"), types.ErrorCodeBadResponseStatusCode, http.StatusTooManyRequests, types.ErrOptionWithRetryHint(time.Hour))
+	RecordRouterCooldownFailure(10, info, failure)
+	first, exists := cooldownStateForTest(10, info)
+	require.True(t, exists)
+	ClearRouterCooldown(10, info)
+	current, exists := cooldownStateForTest(10, info)
+	require.True(t, exists)
+	require.Equal(t, first.CooldownUntil, current.CooldownUntil)
+	failure.RetryHint = time.Minute
+	RecordRouterCooldownFailure(10, info, failure)
+	current, _ = cooldownStateForTest(10, info)
+	require.Equal(t, first.CooldownUntil, current.CooldownUntil)
+	info.AttemptStartedAt = current.LastFailure.Add(time.Second)
+	ClearRouterCooldown(10, info)
+	_, exists = cooldownStateForTest(10, info)
+	require.False(t, exists)
+}
+
 func TestRouterCooldownFallsBackToConfiguredTTL(t *testing.T) {
 	t.Setenv("ROUTER_COOLDOWN_ENABLED", "true")
 	t.Setenv("ROUTER_COOLDOWN_THRESHOLD", "1")

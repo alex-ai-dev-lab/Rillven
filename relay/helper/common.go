@@ -144,8 +144,11 @@ func writeBusinessStreamData(c *gin.Context, payload string) error {
 	mutex.Lock()
 	defer mutex.Unlock()
 	written, err := c.Writer.Write([]byte(payload))
-	staged, isStaged := c.Writer.(*streamStagingWriter)
-	if written > 0 && (!isStaged || staged.Written()) {
+	visible := true
+	if buffered, ok := c.Writer.(interface{ ClientResponseWritten() bool }); ok {
+		visible = buffered.ClientResponseWritten()
+	}
+	if written > 0 && visible {
 		markBusinessStreamCommitted(c)
 	}
 	if err != nil {
