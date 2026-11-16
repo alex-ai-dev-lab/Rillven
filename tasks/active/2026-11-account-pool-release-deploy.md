@@ -20,3 +20,10 @@ Created: 2026-11-16
 
 证据目录：`D:/Code/renewapi/audit/20261116-account-pool-release-deploy/`，不存凭据或数据库副本。
 提交、Actions、Release 和上线证据完成后补充本任务并归档。
+
+源码提交 `62dada0246c719c1453c16f588ec00c984c67f08` 已推送 main。
+首轮 Actions `43891670617` 的 module integrity 发现 BLAKE3 间接测试依赖的四条
+go.sum 校验和缺失，使用 go mod tidy 补齐；PostgreSQL 9.6 下载依赖时发生
+proxy.golang.org HTTP/2 INTERNAL_ERROR，未进入测试。保持完整检查，修复后重新构建。
+服务器实时确认旧服务 v1.6.0 / 3029 healthy、Caddy active、SQLite quick_check=ok，
+现有会话/检查点表为空，3067 HTTP 代理可用；切换尚未开始。
