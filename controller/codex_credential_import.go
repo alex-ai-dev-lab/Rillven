@@ -82,7 +82,7 @@ func ImportCodexCredentialForChannel(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	if err := model.DB.Model(&model.Channel{}).Where("id = ?", channelID).Update("key", candidate.Key).Error; err != nil {
+	if err := model.SetChannelCredential(c.Request.Context(), channelID, candidate.Key); err != nil {
 		common.ApiError(c, err)
 		return
 	}

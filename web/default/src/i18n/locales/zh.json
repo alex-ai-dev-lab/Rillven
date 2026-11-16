@@ -6945,5 +6945,18 @@
   "Parameter overrides after protocol conversion": "协议转换后的参数覆盖",
   "Use the existing operations JSON syntax for target-protocol fields. These operations run once per upstream attempt, after conversion.": "使用现有 operations JSON 语法修改目标协议字段，每次上游尝试在协议转换后执行一次。",
   "Must be a JSON object": "必须为 JSON 对象",
-  "Not provided by this channel": "本渠道未提供"
+  "Not provided by this channel": "本渠道未提供",
+  "Shared upstream account identity": "共享上游账号身份",
+  "Canonical upstream account ID": "上游账号统一 ID",
+  "Optional for adopting an existing account identity. Leave empty for automatic account matching.": "需要沿用已有账号身份时填写；留空则自动匹配账号。",
+  "Stable account subject for API keys": "API Key 所属账号的稳定标识",
+  "Optional administrator label for separately issued keys of the same account. Use single-key channels for this label; Codex OAuth accounts match automatically.": "同一账号的不同 API Key 可填写相同管理标识。此设置仅用于单 Key 渠道；Codex OAuth 账号自动匹配。",
+  "Codex client platform": "Codex 客户端平台",
+  "Codex client terminal": "Codex 客户端终端",
+  "Pinned when the upstream account is first registered.": "账号首次登记后固定，后续渠道复用此值。",
+  "Edit account identity": "编辑账号身份",
+  "Identity changes apply to every channel using this upstream account.": "身份变更会影响使用该上游账号的所有渠道。",
+  "Upstream context token limit": "上游上下文 Token 上限",
+  "Zero uses the provider limit. A configured limit rejects oversized recovered context without dropping history.": "0 表示由上游检查上限。设置后会明确拒绝超限的恢复上下文，不会删减历史。",
+  "Apply the saved channel client profile to this account": "将已保存的渠道客户端画像应用到此账号"
 }

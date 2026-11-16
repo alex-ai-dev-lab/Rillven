@@ -123,6 +123,9 @@ export function RenewChannelSettings({
                 <SelectItem value='per_channel'>
                   {t('Independent channel identity')}
                 </SelectItem>
+                <SelectItem value='per_account'>
+                  {t('Shared upstream account identity')}
+                </SelectItem>
                 <SelectItem value='shadow'>
                   {t('Preview independent identity')}
                 </SelectItem>
@@ -185,6 +188,103 @@ export function RenewChannelSettings({
                 </SelectItem>
               </SelectContent>
             </Select>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='upstream_account_id'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Canonical upstream account ID')}</FormLabel>
+            <FormControl>
+              <Input {...field} value={field.value || ''} />
+            </FormControl>
+            <FormDescription>
+              {t(
+                'Optional for adopting an existing account identity. Leave empty for automatic account matching.'
+              )}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='upstream_account_subject'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Stable account subject for API keys')}</FormLabel>
+            <FormControl>
+              <Input {...field} value={field.value || ''} />
+            </FormControl>
+            <FormDescription>
+              {t(
+                'Optional administrator label for separately issued keys of the same account. Use single-key channels for this label; Codex OAuth accounts match automatically.'
+              )}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='client_platform'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Codex client platform')}</FormLabel>
+            <FormControl>
+              <Input
+                {...field}
+                value={field.value || ''}
+                placeholder='Linux 6.8.0; x86_64'
+              />
+            </FormControl>
+            <FormDescription>
+              {t('Pinned when the upstream account is first registered.')}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='client_terminal'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Codex client terminal')}</FormLabel>
+            <FormControl>
+              <Input
+                {...field}
+                value={field.value || ''}
+                placeholder='unknown'
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name='upstream_context_tokens'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Upstream context token limit')}</FormLabel>
+            <FormControl>
+              <Input
+                type='number'
+                min={0}
+                max={16000000}
+                value={field.value || 0}
+                onChange={(event) => field.onChange(Number(event.target.value))}
+              />
+            </FormControl>
+            <FormDescription>
+              {t(
+                'Zero uses the provider limit. A configured limit rejects oversized recovered context without dropping history.'
+              )}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}

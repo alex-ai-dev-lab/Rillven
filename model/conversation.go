@@ -34,6 +34,7 @@ type ConversationOwnerUsage struct {
 // Response nodes are immutable. Two continuations of the same parent produce
 // separate nodes, so parallel branches cannot overwrite each other's head.
 type ConversationCheckpoint struct {
+	AccountID    string    `gorm:"size:36;not null;default:''"`
 	ID           string    `gorm:"size:64;primaryKey"`
 	Owner        string    `gorm:"size:64;not null;index:idx_context_owner_upstream"`
 	SessionID    string    `gorm:"size:48;not null;index"`
@@ -78,7 +79,7 @@ func MigrateConversationState() error {
 	if DB == nil {
 		return errors.New("conversation database unavailable")
 	}
-	return DB.AutoMigrate(&ConversationSession{}, &ConversationOwnerUsage{}, &ConversationCheckpoint{}, &ConversationResource{}, &ConversationTurnCommit{})
+	return DB.AutoMigrate(&ConversationSession{}, &ConversationOwnerUsage{}, &ConversationCheckpoint{}, &ConversationResource{}, &ConversationTurnCommit{}, &ConversationRequest{}, &ConversationDeletion{})
 }
 
 func FindConversationCheckpoint(ctx context.Context, owner, id string) (*ConversationCheckpoint, error) {
@@ -120,6 +121,9 @@ func FindConversationResource(ctx context.Context, owner, kind, digest string) (
 func LoadConversationSession(ctx context.Context, owner, id string) (*ConversationSession, error) {
 	if DB == nil {
 		return nil, errors.New("conversation database unavailable")
+	}
+	if err := checkConversationDeleted(stateDB(ctx), owner, id); err != nil {
+		return nil, err
 	}
 	var row ConversationSession
 	err := stateDB(ctx).Where("owner = ? AND id = ?", owner, id).First(&row).Error
@@ -277,6 +281,17 @@ func PrepareConversationCommit(ctx context.Context, input ConversationCommitInpu
 					return err
 				}
 				if previous.ContentHash != input.Checkpoint.ContentHash || previous.ParentID != input.Checkpoint.ParentID {
+					// Affinity and account-private resource tokens may recur on
+					// successive authenticated responses from the same account.
+					// Their registry proves ownership, not a conversation prefix.
+					if previous.AccountID != "" && previous.AccountID == input.Checkpoint.AccountID &&
+						(resource.Kind == "affinity" || resource.Kind == "file" || resource.Kind == "container" || resource.Kind == "reference_id" || resource.Kind == "resource_id") {
+						if err := tx.Model(&ConversationResource{}).Where("owner = ? AND kind = ? AND digest = ?", resource.Owner, resource.Kind, resource.Digest).
+							Updates(map[string]any{"checkpoint_id": resource.CheckpointID, "session_id": resource.SessionID}).Error; err != nil {
+							return err
+						}
+						continue
+					}
 					return errors.New("ambiguous conversation resource")
 				}
 			}
@@ -325,6 +340,9 @@ func CleanupConversationState(ctx context.Context, limit int) error {
 	if DB == nil {
 		return errors.New("conversation database unavailable")
 	}
+	if err := cleanupConversationDeletions(ctx, limit); err != nil {
+		return err
+	}
 	var sessions []ConversationSession
 	now := time.Now().Unix()
 	if err := stateDB(ctx).Where("expires_at <= ? AND active_until <= ?", now, now).Order("expires_at").Limit(max(1, min(limit, 64))).Find(&sessions).Error; err != nil {
@@ -332,6 +350,13 @@ func CleanupConversationState(ctx context.Context, limit int) error {
 	}
 	for _, session := range sessions {
 		err := stateDB(ctx).Transaction(func(tx *gorm.DB) error {
+			var pending int64
+			if err := tx.Model(&ConversationTurnCommit{}).Where("session_id = ? AND owner = ? AND state = ?", session.ID, session.Owner, "prepared").Count(&pending).Error; err != nil {
+				return err
+			}
+			if pending > 0 {
+				return nil
+			}
 			removed := tx.Where("id = ? AND revision = ? AND expires_at <= ? AND active_until <= ?", session.ID, session.Revision, now, now).Delete(&ConversationSession{})
 			if removed.Error != nil {
 				return removed.Error

@@ -70,8 +70,7 @@ func (s *BillingSession) Settle(actualQuota int) error {
 			channelID = s.relayInfo.ChannelMeta.ChannelId
 		}
 		if _, err := model.SettleBillingLedger(s.ledgerID, int64(actualQuota), channelID); err != nil {
-			_ = model.MarkBillingLedgerForReconcile(s.ledgerID, model.BillingLedgerDesiredSettle, int64(actualQuota), err, channelID)
-			return err
+			return recordBillingReconcileFailure(s.ledgerID, model.BillingLedgerDesiredSettle, int64(actualQuota), err, channelID)
 		}
 		if s.funding.Source() == BillingSourceSubscription {
 			s.relayInfo.SubscriptionPostDelta += int64(delta)
@@ -125,8 +124,8 @@ func (s *BillingSession) Refund(c *gin.Context) {
 	if s.usesPersistentBalanceLedger() {
 		_, err := model.RefundBillingLedger(s.ledgerID, "request failed before settlement")
 		if err != nil {
-			_ = model.MarkBillingLedgerForReconcile(s.ledgerID, model.BillingLedgerDesiredRefund, 0, err)
-			common.SysLog("error refunding billing ledger: " + err.Error())
+			s.relayInfo.SettlementError = recordBillingReconcileFailure(s.ledgerID, model.BillingLedgerDesiredRefund, 0, err)
+			common.SysLog("error refunding billing ledger: " + s.relayInfo.SettlementError.Error())
 			return
 		}
 		s.refunded = true
@@ -292,8 +291,7 @@ func (s *BillingSession) settleWithTask(task *model.Task, actualQuota int) error
 		ledger, err = model.SettleBillingLedgerWithTask(s.ledgerID, int64(actualQuota), task)
 	}
 	if err != nil {
-		_ = model.MarkBillingLedgerForReconcile(s.ledgerID, model.BillingLedgerDesiredSettle, int64(actualQuota), err)
-		return err
+		return recordBillingReconcileFailure(s.ledgerID, model.BillingLedgerDesiredSettle, int64(actualQuota), err)
 	}
 	if s.funding.Source() == BillingSourceSubscription {
 		s.relayInfo.SubscriptionPostDelta += int64(delta)
@@ -340,8 +338,7 @@ func (s *BillingSession) settleWithMidjourney(task *model.Midjourney, actualQuot
 	delta := actualQuota - s.preConsumedQuota
 	ledger, err := model.SettleBillingLedgerWithMidjourney(s.ledgerID, int64(actualQuota), task)
 	if err != nil {
-		_ = model.MarkBillingLedgerForReconcile(s.ledgerID, model.BillingLedgerDesiredSettle, int64(actualQuota), err)
-		return err
+		return recordBillingReconcileFailure(s.ledgerID, model.BillingLedgerDesiredSettle, int64(actualQuota), err)
 	}
 	if s.funding.Source() == BillingSourceSubscription {
 		s.relayInfo.SubscriptionPostDelta += int64(delta)

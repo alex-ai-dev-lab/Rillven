@@ -158,6 +158,7 @@ func main() {
 	startWorker("subscription-reset", service.RunSubscriptionQuotaResetTask)
 	startWorker("billing-reconciler", service.RunBillingReconciler)
 	startWorker("conversation-maintenance", service.RunConversationMaintenance)
+	startWorker("account-quota-probes", service.RunAccountQuotaProbes)
 
 	// Client identity rotation worker
 	startWorker("client-identity-rotation", service.RunClientIdentityRotationWorker)

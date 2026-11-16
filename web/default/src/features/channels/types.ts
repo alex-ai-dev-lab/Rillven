@@ -146,12 +146,18 @@ export interface ChannelSettings {
   client_identity_mode?:
     | 'inherit'
     | 'per_channel'
+    | 'per_account'
     | 'shadow'
     | 'legacy'
     | 'disabled'
   egress_policy?: 'inherit' | 'direct' | 'proxy'
   client_profile?: 'inherit' | 'codex' | 'claude'
   client_version?: string
+  upstream_account_id?: string
+  upstream_account_subject?: string
+  client_platform?: string
+  client_terminal?: string
+  upstream_context_tokens?: number
   conversation_recovery?: 'off' | 'shadow' | 'managed'
   upstream_coordination?: boolean
   stream_commit_mode?: 'realtime' | 'atomic_turn'
@@ -502,9 +508,15 @@ export interface ChannelFormData {
     | 'legacy'
     | 'disabled'
     | 'per_channel'
+    | 'per_account'
     | 'shadow'
   client_profile?: 'inherit' | 'codex' | 'claude'
   client_version?: string
+  upstream_account_id?: string
+  upstream_account_subject?: string
+  client_platform?: string
+  client_terminal?: string
+  upstream_context_tokens?: number
   conversation_recovery?: 'off' | 'shadow' | 'managed'
   upstream_coordination?: boolean
   stream_commit_mode?: 'realtime' | 'atomic_turn'

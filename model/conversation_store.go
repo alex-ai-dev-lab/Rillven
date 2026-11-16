@@ -14,6 +14,9 @@ func ReadConversationParent(ctx context.Context, owner, session, id string) (*Co
 	if DB == nil {
 		return nil, errors.New("conversation database unavailable")
 	}
+	if err := CheckConversationDeletion(ctx, owner, session); err != nil {
+		return nil, err
+	}
 	var live ConversationSession
 	if err := stateDB(ctx).Where("id = ? AND owner = ? AND active_until > ?", session, owner, time.Now().Unix()).First(&live).Error; err != nil {
 		return nil, err

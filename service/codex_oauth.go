@@ -52,6 +52,10 @@ func RefreshCodexOAuthTokenWithOptions(ctx context.Context, refreshToken string,
 }
 
 func refreshCodexOAuthTokenWithCheck(ctx context.Context, refreshToken string, options HTTPClientOptions, beforeSend ...func() error) (*CodexOAuthTokenResult, error) {
+	return refreshCodexOAuthTokenWithProfile(ctx, refreshToken, options, nil, beforeSend...)
+}
+
+func refreshCodexOAuthTokenWithProfile(ctx context.Context, refreshToken string, options HTTPClientOptions, headers http.Header, beforeSend ...func() error) (*CodexOAuthTokenResult, error) {
 	if strings.TrimSpace(refreshToken) == "" {
 		return nil, errors.New("empty refresh_token")
 	}
@@ -60,7 +64,7 @@ func refreshCodexOAuthTokenWithCheck(ctx context.Context, refreshToken string, o
 		return nil, err
 	}
 	return withCodexRefreshJournal(ctx, strings.TrimSpace(refreshToken), func() (*CodexOAuthTokenResult, error) {
-		return refreshCodexOAuthToken(ctx, client, codexOAuthTokenURL, codexOAuthClientID, refreshToken)
+		return refreshCodexOAuthToken(ctx, client, codexOAuthTokenURL, codexOAuthClientID, refreshToken, headers)
 	}, beforeSend...)
 }
 
@@ -103,6 +107,7 @@ func refreshCodexOAuthToken(
 	tokenURL string,
 	clientID string,
 	refreshToken string,
+	identityHeaders ...http.Header,
 ) (*CodexOAuthTokenResult, error) {
 	rt := strings.TrimSpace(refreshToken)
 	if rt == "" {
@@ -120,6 +125,14 @@ func refreshCodexOAuthToken(
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
+	if len(identityHeaders) > 0 {
+		for name, values := range identityHeaders[0] {
+			switch strings.ToLower(name) {
+			case "user-agent", "originator", "x-codex-installation-id", "session-id", "session_id", "thread-id", "thread_id", "x-client-request-id", "x-codex-window-id", "x-codex-turn-metadata":
+				req.Header[name] = append([]string(nil), values...)
+			}
+		}
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {

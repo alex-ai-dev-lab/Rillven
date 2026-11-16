@@ -17,6 +17,10 @@ func SetRelayRouter(router *gin.Engine) {
 	router.Use(middleware.StatsMiddleware())
 	// https://platform.openai.com/docs/api-reference/introduction
 	modelsRouter := router.Group("/v1/models")
+	conversationRouter := router.Group("/v1/rillven/conversations", middleware.RouteTag("relay"), middleware.TokenAuth())
+	conversationRouter.GET("", controller.ListOwnedConversations)
+	conversationRouter.DELETE("", controller.DeleteAllOwnedConversations)
+	conversationRouter.DELETE("/:id", controller.DeleteOwnedConversation)
 	modelsRouter.Use(middleware.RouteTag("relay"))
 	modelsRouter.Use(middleware.TokenAuth())
 	{

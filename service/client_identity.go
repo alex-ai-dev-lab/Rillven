@@ -35,7 +35,7 @@ func ApplyClientIdentityToRequestWithOptions(path string, headers http.Header, b
 			return body, false, nil
 		}
 		var payload map[string]any
-		if common.Unmarshal(body, &payload) != nil || payload == nil {
+		if common.UnmarshalPreserveNumbers(body, &payload) != nil || payload == nil {
 			return nil, false, fmt.Errorf("invalid JSON for scoped client identity")
 		}
 		if err := applyScopedClientIdentity(headers, payload, p); err != nil {

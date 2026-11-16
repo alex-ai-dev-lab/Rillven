@@ -508,6 +508,10 @@ func OaiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 	info.StreamStatus.SetPolicy(relaycommon.StreamTerminationPolicyOpenAIResponses)
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
+		if gjson.Get(data, "type").String() == "codex.rate_limits" {
+			service.ObserveCodexAccountQuota(c.Request.Context(), info, nil, []byte(data))
+			return
+		}
 
 		// 检查当前数据是否包含 completed 状态和 usage 信息
 		var streamResponse dto.ResponsesStreamResponse

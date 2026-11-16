@@ -2,6 +2,7 @@ package dto
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"strings"
 )
 
@@ -64,13 +65,18 @@ type ChannelSettings struct {
 	UserAgentID       *int   `json:"user_agent_id,omitempty"`       // UA from user_agents table
 	UserAgentOverride string `json:"user_agent_override,omitempty"` // Custom UA string
 	// Empty inherits the global scope. Per-channel identities require durable state keys.
-	ClientIdentityMode string `json:"client_identity_mode,omitempty"`
-	ClientProfile      string `json:"client_profile,omitempty"` // inherit, codex, claude
-	ClientVersion      string `json:"client_version,omitempty"`
+	ClientIdentityMode     string `json:"client_identity_mode,omitempty"`
+	UpstreamAccountID      string `json:"upstream_account_id,omitempty"`      // explicit canonical identity adoption
+	UpstreamAccountSubject string `json:"upstream_account_subject,omitempty"` // admin subject for separately issued opaque keys
+	ClientProfile          string `json:"client_profile,omitempty"`           // inherit, codex, claude
+	ClientVersion          string `json:"client_version,omitempty"`
+	ClientPlatform         string `json:"client_platform,omitempty"` // official UA: OS version; architecture
+	ClientTerminal         string `json:"client_terminal,omitempty"`
 	// Recovery settings are opt-in so existing conversations retain their contract.
-	ConversationRecovery string `json:"conversation_recovery,omitempty"` // off, shadow, managed
-	StreamCommitMode     string `json:"stream_commit_mode,omitempty"`    // realtime, atomic_turn
-	UpstreamCoordination bool   `json:"upstream_coordination,omitempty"`
+	ConversationRecovery  string `json:"conversation_recovery,omitempty"` // off, shadow, managed
+	StreamCommitMode      string `json:"stream_commit_mode,omitempty"`    // realtime, atomic_turn
+	UpstreamCoordination  bool   `json:"upstream_coordination,omitempty"`
+	UpstreamContextTokens int    `json:"upstream_context_tokens,omitempty"` // zero: provider enforces its window
 
 	// Upstream error normalization. When nil, the global setting decides.
 	NormalizeUpstreamErrors *bool `json:"normalize_upstream_errors,omitempty"`
@@ -141,6 +147,9 @@ const (
 )
 
 func (s *ChannelSettings) ValidateHTTPTransport() error {
+	if s.UpstreamContextTokens < 0 || s.UpstreamContextTokens > 16000000 {
+		return fmt.Errorf("upstream context tokens must be between 0 and 16000000")
+	}
 	if s == nil {
 		return nil
 	}
@@ -148,7 +157,7 @@ func (s *ChannelSettings) ValidateHTTPTransport() error {
 		value   string
 		allowed []string
 	}{
-		{s.ClientIdentityMode, []string{"", "inherit", "legacy", "disabled", "per_channel", "shadow"}},
+		{s.ClientIdentityMode, []string{"", "inherit", "legacy", "disabled", "per_channel", "per_account", "shadow"}},
 		{s.ClientProfile, []string{"", "inherit", "codex", "claude"}},
 		{s.ConversationRecovery, []string{"", "off", "shadow", "managed"}},
 		{s.StreamCommitMode, []string{"", "realtime", "atomic_turn"}},
@@ -166,6 +175,21 @@ func (s *ChannelSettings) ValidateHTTPTransport() error {
 	}
 	if len(s.ClientVersion) > 32 {
 		return fmt.Errorf("client version exceeds 32 characters")
+	}
+	if s.UpstreamAccountID != "" {
+		if _, err := uuid.Parse(s.UpstreamAccountID); err != nil {
+			return fmt.Errorf("upstream account ID must be a UUID")
+		}
+	}
+	for _, value := range []string{s.ClientPlatform, s.ClientTerminal, s.UserAgentOverride, s.UpstreamAccountSubject} {
+		if len(value) > 256 {
+			return fmt.Errorf("client profile value exceeds 256 characters")
+		}
+		for _, ch := range value {
+			if ch < 32 || ch > 126 {
+				return fmt.Errorf("client profile must contain printable ASCII")
+			}
+		}
 	}
 	for _, char := range s.ClientVersion {
 		if !(char >= '0' && char <= '9' || char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' || char == '.' || char == '-') {

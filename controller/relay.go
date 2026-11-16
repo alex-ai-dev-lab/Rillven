@@ -283,10 +283,19 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		newAPIError = contextErr
 		return
 	}
+	if c.IsAborted() {
+		return
+	}
 	if turn := service.GetConversationTurn(c); turn != nil && turn.Managed {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Minute)
-		defer cancel()
-		c.Request = c.Request.WithContext(ctx)
+		request := c.Request
+		ctx, cancel := context.WithTimeout(request.Context(), 10*time.Minute)
+		defer func() {
+			cancel()
+			// Error delivery checks the caller's cancellation, not the lifetime
+			// of the managed attempt that has just finished.
+			c.Request = request
+		}()
+		c.Request = request.WithContext(ctx)
 	}
 	if err := compat.Hooks().OnInit(c, relayInfo); err != nil {
 		service.SetModelRouteOutcome(c, service.ModelRouteOutcomeClientRejected)

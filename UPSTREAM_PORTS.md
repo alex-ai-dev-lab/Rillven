@@ -1,5 +1,18 @@
 # Upstream Port Ledger
 
+## 2026-11-16 共享账号池与官方 Codex 生成逻辑
+
+| 固定参考源码 | 处置 | 本地范围 |
+| --- | --- | --- |
+| OpenAI Codex `662a634e88fcc809d77da393d75572c3d814cb27`，`codex-rs/utils/model-facing-id/src/lib.rs` | ADAPTED | BLAKE3 seed、四轮 Feistel、cycle walking、十进制池及 ordinal/version；Go 实现和持久 context allocation，Apache-2.0 署名/许可在 `docs/licenses/codex-model-facing-id.txt`。 |
+| 同一 Codex ref，login/auth/default_client 与 codex-api/rate_limits | ADAPTED | 账号固定 UA 组成、UUIDv4 安装、持久 UUIDv7 关系；默认 primary/secondary 额度字段。保留 Go 传输，不宣称官方 TLS/H2 字节画像。 |
+| Codex2API `9c311dc79252244415b40f75693a1101e3ae36d9`；codex-proxy-rs `4ee9abf9d2f5889b34202ade7597ff8cd5c2de22` | ADAPTED | 账号安装/多窗口关联与输出前重建的行为参考；使用本地 canonical UUID、owner 和已有 checkpoint，不导入独立账号池/传输产品。 |
+| Sub2API `10ba8f9b4dc2e6023d4a9879ab77b21841babd10`；codex-lb `72630bbfeee9e3b0d9acfb95e2b1e706b8b0188e` | ADAPTED | 凭据 shadow/主体归一、完整前缀证明、数据库时钟与刷新结果保护；不删 reasoning 获得可迁移，不替代本地授权/资金账本。 |
+| 可选 native egress、目标自动 compact、私有资源跨账号恢复 | DEFERRED | 需要独立真实供应商/传输及副作用契约验收；基础实现明确拒绝未知状态或超窗，不静默回退/截断。 |
+
+以上为行为适配，未合并第三方 Git 历史，也未推进下方 NewAPI 审计基线。源码与隔离验收见
+`docs/account-pool-validation-20261116.md`；真实账号、双服务进程与传输对照仍未验证。
+
 ## 2026-10-15 API 调用与 SSE 专项参考
 
 | GitHub 来源 | 处置 | 本地结果 |

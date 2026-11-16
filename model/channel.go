@@ -25,6 +25,7 @@ import (
 )
 
 type Channel struct {
+	credentialReference string  `gorm:"-" json:"-"`
 	Id                  int     `json:"id"`
 	ConfigVersion       int64   `json:"config_version" gorm:"not null;default:1"`
 	Type                int     `json:"type" gorm:"default:0"`
@@ -208,6 +209,10 @@ func (channel *Channel) GetKeys() []string {
 			res := make([]string, len(arr))
 			for i, v := range arr {
 				res[i] = string(v)
+				var text string
+				if common.Unmarshal(v, &text) == nil {
+					res[i] = text
+				}
 			}
 			return res
 		}
@@ -808,7 +813,19 @@ func (channel *Channel) UpdateConfigTx(tx *gorm.DB, expectedVersion *int64, upda
 		"config_version":         gorm.Expr("config_version + ?", 1),
 	}
 	if updateKey {
-		updates["key"] = channel.Key
+		channel.credentialReference = existing.credentialReference
+		key, err := channel.protectCredential(tx)
+		if err != nil {
+			return previousStatus, err
+		}
+		updates["key"] = key
+	} else if channel.GetSetting().ClientIdentityMode == "per_account" && existing.credentialReference == "" {
+		channel.Key = existing.Key
+		key, err := channel.protectCredential(tx)
+		if err != nil {
+			return previousStatus, err
+		}
+		updates["key"] = key
 	}
 	query := tx.Model(&Channel{}).Where("id = ?", channel.Id)
 	if expectedVersion != nil {
@@ -823,6 +840,13 @@ func (channel *Channel) UpdateConfigTx(tx *gorm.DB, expectedVersion *int64, upda
 			return previousStatus, ErrChannelConfigConflict
 		}
 		return previousStatus, gorm.ErrRecordNotFound
+	}
+	if updateKey && ChannelUsesAccountIdentity(channel) {
+		// Quota eligibility must not retain removed credential slots. Account
+		// identities and allocation records remain available for restoration.
+		if err := tx.Where("channel_id = ?", channel.Id).Delete(&ChannelAccountBinding{}).Error; err != nil {
+			return previousStatus, err
+		}
 	}
 	if err := tx.First(channel, "id = ?", channel.Id).Error; err != nil {
 		return previousStatus, err
@@ -1387,11 +1411,14 @@ func (channel *Channel) ValidateSettings() error {
 	if err := channelParams.ValidateHTTPTransport(); err != nil {
 		return err
 	}
-	if channelParams.ClientIdentityMode == "per_channel" || channelParams.ClientIdentityMode == "shadow" ||
+	if channelParams.ClientIdentityMode == "per_channel" || ChannelUsesAccountIdentity(channel) || channelParams.ClientIdentityMode == "shadow" ||
 		channelParams.ConversationRecovery == "managed" || channelParams.ConversationRecovery == "shadow" {
 		if _, err := common.RelayStateCipher(); err != nil {
 			return err
 		}
+	}
+	if ChannelUsesAccountIdentity(channel) && channel.ChannelInfo.IsMultiKey && (channelParams.UpstreamAccountID != "" || channelParams.UpstreamAccountSubject != "") {
+		return errors.New("multi-key channels adopt canonical accounts per credential slot")
 	}
 	seenTargets := make(map[string]struct{}, len(channelParams.ModelProtocolOverrideTargets))
 	for _, target := range channelParams.ModelProtocolOverrideTargets {

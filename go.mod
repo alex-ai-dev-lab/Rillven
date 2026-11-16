@@ -65,7 +65,10 @@ require (
 	github.com/waffo-com/waffo-pancake-sdk-go v0.3.1
 )
 
-require github.com/yuin/gopher-lua v1.1.1 // indirect
+require (
+	github.com/yuin/gopher-lua v1.1.1 // indirect
+	github.com/zeebo/blake3 v0.2.4
+)
 
 require (
 	github.com/DmitriyVTitov/size v1.5.0 // indirect

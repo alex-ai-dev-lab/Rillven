@@ -178,7 +178,7 @@ func Distribute() func(c *gin.Context) {
 				}
 				if channel == nil && found {
 					preferred, err := model.CacheGetChannel(preferredChannelID)
-					if err == nil && preferred != nil {
+					if err == nil && preferred != nil && service.ChannelHasAvailableAccount(c.Request.Context(), preferred) {
 						if preferred.Status != common.ChannelStatusEnabled {
 							if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
 								service.SetModelRouteOutcome(c, service.ModelRouteOutcomeClientRejected)
@@ -986,6 +986,13 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 }
 
 func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
+	if model.ChannelUsesAccountIdentity(channel) {
+		fresh, err := model.LoadProtectedAccountChannel(c.Request.Context(), channel.Id)
+		if err != nil {
+			return types.NewConversationStoreUnavailable()
+		}
+		channel = fresh
+	}
 	c.Set("original_model", modelName) // for retry
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
@@ -1035,6 +1042,12 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	}
 	if newAPIError != nil {
 		return newAPIError
+	}
+	if model.ChannelUsesAccountIdentity(channel) {
+		key, index, newAPIError = service.SelectAvailableAccountKey(c.Request.Context(), channel, key, index, usedAffinityKey, nil)
+		if newAPIError != nil {
+			return newAPIError
+		}
 	}
 	if channel.ChannelInfo.IsMultiKey {
 		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, true)

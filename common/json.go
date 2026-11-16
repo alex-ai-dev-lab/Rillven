@@ -6,12 +6,31 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"unicode/utf16"
 )
 
 type RawMessage = json.RawMessage
 
 func Unmarshal(data []byte, v any) error {
 	return json.Unmarshal(data, v)
+}
+
+// UnmarshalPreserveNumbers keeps arbitrary tool arguments and metadata exact
+// when an object must be edited without knowing every nested numeric schema.
+func UnmarshalPreserveNumbers(data []byte, v any) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(v); err != nil {
+		return err
+	}
+	var trailing RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err != nil {
+			return err
+		}
+		return errors.New("unexpected trailing JSON value")
+	}
+	return nil
 }
 
 func ValidJSON(data []byte) bool {
@@ -101,6 +120,28 @@ func DecodeUniqueJSONObject(data []byte) (map[string]RawMessage, error) {
 
 func Marshal(v any) ([]byte, error) {
 	return json.Marshal(v)
+}
+
+// Header metadata must remain ASCII even when workspace paths contain Unicode.
+func MarshalASCII(v any) ([]byte, error) {
+	raw, err := Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	for _, r := range string(raw) {
+		if r <= 127 {
+			out.WriteByte(byte(r))
+			continue
+		}
+		if r <= 0xffff {
+			fmt.Fprintf(&out, "\\u%04x", r)
+		} else {
+			a, b := utf16.EncodeRune(r)
+			fmt.Fprintf(&out, "\\u%04x\\u%04x", a, b)
+		}
+	}
+	return out.Bytes(), nil
 }
 
 func GetJsonType(data json.RawMessage) string {

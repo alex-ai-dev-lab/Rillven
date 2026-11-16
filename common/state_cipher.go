@@ -75,6 +75,16 @@ func (c *StateCipher) Open(aad, encrypted string) ([]byte, error) {
 	return plain, nil
 }
 
+func (c *StateCipher) ActiveKeyID() string { return c.active }
+
+func (c *StateCipher) Reseal(aad, encrypted string) (string, error) {
+	plain, err := c.Open(aad, encrypted)
+	if err != nil {
+		return "", err
+	}
+	return c.Seal(aad, plain)
+}
+
 var stateCipherCache struct {
 	sync.RWMutex
 	raw, active string

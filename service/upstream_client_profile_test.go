@@ -35,7 +35,9 @@ func setupIdentityStateTest(t *testing.T) {
 	previous := model.DB
 	model.DB = db
 	t.Cleanup(func() { model.DB = previous; _ = sqlDB.Close() })
-	require.NoError(t, db.AutoMigrate(&model.ChannelIdentity{}, &model.ChannelCredentialSlot{}))
+	require.NoError(t, db.AutoMigrate(&model.ChannelIdentity{}, &model.ChannelCredentialSlot{}, &model.ConversationDeletion{}))
+	require.NoError(t, model.MigrateUpstreamAccounts())
+	require.NoError(t, model.MigrateUpstreamCredentials())
 }
 
 func TestAttemptClientProfileStableScopedIdentity(t *testing.T) {

@@ -72,7 +72,7 @@ func NormalizeResponsesFunctionCallArguments(req *dto.OpenAIResponsesRequest, fo
 	}
 
 	var items []any
-	if err := common.Unmarshal(req.Input, &items); err != nil {
+	if err := common.UnmarshalPreserveNumbers(req.Input, &items); err != nil {
 		return false, fmt.Errorf("invalid responses input array: %w", err)
 	}
 
@@ -132,7 +132,7 @@ func normalizeResponsesFunctionCallArgumentsObject(value any) (any, bool, error)
 			return map[string]any{}, true, nil
 		}
 		var parsed map[string]any
-		if err := common.Unmarshal([]byte(raw), &parsed); err != nil {
+		if err := common.UnmarshalPreserveNumbers([]byte(raw), &parsed); err != nil {
 			return nil, false, fmt.Errorf("responses function_call.arguments must be a JSON object string for this upstream: %w", err)
 		}
 		if parsed == nil {

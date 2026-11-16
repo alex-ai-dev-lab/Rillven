@@ -44,6 +44,7 @@ type responsesWSUpstream struct {
 	lastEventID string
 	lastCount   int
 	lastHash    [32]byte
+	quota       func([]byte)
 }
 
 type responsesWSUpstreamTurn struct {
@@ -144,6 +145,9 @@ func (t *ResponsesWSTransport) RoundTrip(req *http.Request, info *relaycommon.Re
 		}
 		target.SetReadLimit(int64(helper.DefaultMaxScannerBufferSize))
 		conn = &responsesWSUpstream{conn: target, scope: scope, headers: response.Header.Clone(), done: make(chan struct{})}
+		quotaInfo, quotaMeta := *info, *info.ChannelMeta
+		quotaInfo.ChannelMeta = &quotaMeta
+		conn.quota = func(payload []byte) { service.ObserveCodexAccountQuota(t.ctx, &quotaInfo, nil, payload) }
 		t.conn = conn
 		go conn.readLoop()
 	}
@@ -222,6 +226,12 @@ func (u *responsesWSUpstream) readLoop() {
 			return
 		}
 		value := gjson.ParseBytes(payload)
+		if value.Get("type").String() == "codex.rate_limits" {
+			if u.quota != nil {
+				u.quota(payload)
+			}
+			continue
+		}
 		u.mu.Lock()
 		turn := u.active
 		if turn == nil || turn.terminal {

@@ -1,6 +1,20 @@
 # Rillven 当前项目状态
 
-更新日期：2026-11-15。源码状态以 Git 提交和工作树改动为准，生产镜像与验收范围以对应部署归档为准。
+更新日期：2026-11-16。源码状态以 Git 提交和工作树改动为准，生产镜像与验收范围以对应部署归档为准。
+
+## 共享订阅账号池（源码发布和部署进行中）
+
+在 main 基线 `98a4992` 上加入 per_account canonical 身份、逐 grant 加密 vault、
+持久 UUIDv7/官方 model-facing ID 生成、默认 Codex 额度调度、严格历史/引用、幂等结果重取、
+删除记录/重加密和显式 profile 升级；继续使用原渠道/分组授权及资金账本。
+实际 HTTP/原生 WS 本地 A/B × U/V、四版本数据库兼容和完整源码检查见
+[验收记录](account-pool-validation-20261116.md)。配置与兼容边界见 [账号池说明](ACCOUNT_POOL.md)、ADR-025。
+
+用户已授权提交、Actions 构建到 Releases 和服务器蓝绿切换；进度见
+[部署任务](../tasks/active/2026-11-account-pool-release-deploy.md)。保持现有生产渠道配置。
+真实账号/额度、两独立服务进程、官方 TLS/H2 对照和账号池灰度未验收，
+完整功能任务继续留在 [active task](../tasks/active/2026-11-shared-account-pool.md)。
+2026-11-15 的生产 SQLite 锁 holder 仍未知，本地锁重试/错误保留验证不等于生产根因已查明。
 
 ## v1.6.0 正式发布（已上线）
 

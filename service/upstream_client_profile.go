@@ -28,13 +28,24 @@ const (
 )
 
 // AttemptClientProfile is resolved after selecting the credential. It contains
-// no credentials or seeds and is never reused for a different channel/slot.
+// no credentials and is never reused for a different channel/slot.
 type AttemptClientProfile struct {
 	Mode, Provider, SlotID                        string
 	InstallationID, DeviceID, SessionID, ThreadID string
+	WindowID, TurnID, ContextWindowID             string
 	IdentityRevision                              int64
 	Headers                                       http.Header
+	AccountID                                     string
+	AccountRevision                               int64
+	seed                                          []byte
+	owner                                         string
+	mapped                                        map[string]struct{}
+	correlations                                  map[string]string
+	turnMetadata                                  map[string]any
+	ctx                                           context.Context
 }
+
+func ScopedIdentityMode(mode string) bool { return mode == "per_channel" || mode == "per_account" }
 
 func identityProjection(seed []byte, fields ...string) []byte {
 	h := hmac.New(sha256.New, seed)
@@ -55,8 +66,10 @@ func identityUUID(seed []byte, fields ...string) string {
 }
 
 func channelIdentityScope(info *relaycommon.RelayInfo) string {
-	if mode := info.ChannelSetting.ClientIdentityMode; mode != "" && mode != "inherit" {
-		return mode
+	if info != nil && info.ChannelMeta != nil {
+		if mode := info.ChannelSetting.ClientIdentityMode; mode != "" && mode != "inherit" {
+			return mode
+		}
 	}
 	setting := model.GetClientIdentitySetting()
 	if !setting.Enabled {
@@ -66,6 +79,10 @@ func channelIdentityScope(info *relaycommon.RelayInfo) string {
 		return "legacy"
 	}
 	return setting.Scope
+}
+
+func UsesAccountIdentity(info *relaycommon.RelayInfo) bool {
+	return info != nil && info.ChannelMeta != nil && channelIdentityScope(info) == "per_account"
 }
 
 func callerConversation(headers http.Header, body []byte) (session, thread string) {
@@ -82,6 +99,12 @@ func callerConversation(headers http.Header, body []byte) (session, thread strin
 		}
 	}
 	if session == "" {
+		session = gjson.GetBytes(body, "client_metadata.session_id").String()
+	}
+	if thread == "" {
+		thread = gjson.GetBytes(body, "client_metadata.thread_id").String()
+	}
+	if session == "" {
 		user := gjson.GetBytes(body, "metadata.user_id")
 		if user.Type == gjson.String {
 			user = gjson.Parse(user.String())
@@ -96,11 +119,11 @@ func ResolveAttemptClientProfile(c *gin.Context, info *relaycommon.RelayInfo, pa
 	if mode == "legacy" {
 		return nil, nil
 	}
-	p := &AttemptClientProfile{Mode: mode, Headers: make(http.Header)}
+	p := &AttemptClientProfile{Mode: mode, Headers: make(http.Header), ctx: c.Request.Context()}
 	if mode == "disabled" {
 		return p, nil
 	}
-	if mode != "per_channel" && mode != "shadow" {
+	if !ScopedIdentityMode(mode) && mode != "shadow" {
 		return nil, errors.New("invalid channel identity scope")
 	}
 	if strings.Contains(path, "/messages") {
@@ -110,7 +133,7 @@ func ResolveAttemptClientProfile(c *gin.Context, info *relaycommon.RelayInfo, pa
 	} else {
 		return p, nil
 	}
-	row, err := model.EnsureChannelIdentity(c.Request.Context(), info.ChannelId)
+	row, err := model.EnsureChannelIdentity(c.Request.Context(), info.ChannelId, mode == "per_account")
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +141,7 @@ func ResolveAttemptClientProfile(c *gin.Context, info *relaycommon.RelayInfo, pa
 	if err != nil {
 		return nil, err
 	}
+	legacyExists := !secret.CreatedForAccount
 	seed, _ := base64.StdEncoding.DecodeString(secret.Seed)
 	slotSeed, err := base64.StdEncoding.DecodeString(secret.SlotSeed)
 	if err != nil || len(slotSeed) != 32 {
@@ -129,7 +153,7 @@ func ResolveAttemptClientProfile(c *gin.Context, info *relaycommon.RelayInfo, pa
 		if err != nil {
 			return nil, err
 		}
-		subject, err = codexCredentialSubject(key)
+		subject, err = legacyCodexCredentialSubject(key)
 		if err != nil {
 			return nil, err
 		}
@@ -155,8 +179,80 @@ func ResolveAttemptClientProfile(c *gin.Context, info *relaycommon.RelayInfo, pa
 			p.DeviceID = secret.DeviceID
 		}
 	}
+	if mode == "per_account" {
+		subject, err = upstreamAccountPrincipal(c.Request.Context(), info.ChannelType, info.ApiKey, info.ChannelSetting)
+		if err != nil {
+			return nil, err
+		}
+		var bound int64
+		if err := model.DB.WithContext(c.Request.Context()).Model(&model.ChannelAccountBinding{}).
+			Joins("JOIN upstream_accounts ON upstream_accounts.id = channel_account_bindings.account_id").
+			Where("channel_account_bindings.channel_id = ? AND upstream_accounts.subject_hash = ?", info.ChannelId, model.AccountSubjectHash(p.Provider, subject)).Count(&bound).Error; err != nil {
+			return nil, err
+		}
+		version := info.ChannelSetting.ClientVersion
+		ua, originator := DefaultCodexCLIUserAgent, "codex_cli_rs"
+		if p.Provider == "claude" {
+			ua, originator = DefaultClaudeCLIUserAgent, ""
+		}
+		if version != "" {
+			if p.Provider == "codex" {
+				ua = "codex-cli_rs/" + version
+			} else {
+				ua = "claude-cli/" + version + " (external, cli)"
+			}
+		}
+		if p.Provider == "codex" {
+			ua = generatedCodexUserAgent(info.ChannelSetting, legacyExists)
+		}
+		initial := model.AccountIdentitySecret{Seed: secret.Seed, LegacySlot: slot.ID, LegacyRevision: row.Revision, InstallationID: p.InstallationID, DeviceID: p.DeviceID, ClientVersion: version, UserAgent: ua, Originator: originator}
+		initial.NewInstallation = !legacyExists && secret.InstallationID == ""
+		initial.ExplicitProfile = info.ChannelSetting.ClientPlatform != "" || info.ChannelSetting.ClientTerminal != "" || info.ChannelSetting.UserAgentOverride != ""
+		account, err := model.EnsureUpstreamAccount(c.Request.Context(), p.Provider, subject, initial, info.ChannelSetting.UpstreamAccountID, legacyExists && bound == 0, info.ClientProfilePreview)
+		if err != nil {
+			return nil, err
+		}
+		if err := model.BindChannelAccount(c.Request.Context(), info.ChannelId, slot.ID, account.ID); err != nil {
+			return nil, err
+		}
+		identity, err := account.Secret()
+		if err != nil {
+			return nil, err
+		}
+		seed, err = base64.StdEncoding.DecodeString(identity.Seed)
+		if err != nil {
+			return nil, err
+		}
+		p.AccountID, p.SlotID, p.IdentityRevision = account.ID, identity.LegacySlot, identity.LegacyRevision+account.IdentityRevision-1
+		p.AccountRevision = account.Revision
+		p.InstallationID, p.DeviceID = identity.InstallationID, identity.DeviceID
+		p.Headers.Set("User-Agent", identity.UserAgent)
+		if identity.Originator != "" {
+			p.Headers.Set("Originator", identity.Originator)
+		}
+	}
 	session, thread := callerConversation(c.Request.Header, body)
-	if logical := c.GetString(ContextConversationSession); logical != "" {
+	var accountInput map[string]string
+	if mode == "per_account" && p.Provider == "codex" {
+		if turn := GetConversationTurn(c); turn != nil {
+			if _, err := collectAccountIdentity(c.Request.Header, turn.Original); err != nil {
+				return nil, err
+			}
+		}
+		accountInput, err = collectAccountIdentity(c.Request.Header, body)
+		if err != nil {
+			return nil, err
+		}
+		p.turnMetadata, err = collectAccountTurnMetadata(c.Request.Header, body)
+		if err != nil {
+			return nil, err
+		}
+		session, thread = accountInput["session_id"], accountInput["thread_id"]
+		if session == "" {
+			session = thread
+		}
+	}
+	if logical := c.GetString(ContextConversationSession); logical != "" && session == "" {
 		session = logical
 	}
 	if session == "" {
@@ -171,12 +267,37 @@ func ResolveAttemptClientProfile(c *gin.Context, info *relaycommon.RelayInfo, pa
 		session = "request:" + requestID
 	}
 	owner := fmt.Sprintf("%d/%d/%x", info.UserId, info.TokenId, sha256.Sum256([]byte(info.TokenKey)))
-	revision := fmt.Sprint(row.Revision)
-	p.SessionID = identityUUID(seed, p.Provider, slot.ID, owner, session, revision, "session")
+	p.seed, p.owner = seed, owner
+	revision := fmt.Sprint(p.IdentityRevision)
+	p.SessionID = identityUUID(seed, p.Provider, p.SlotID, owner, session, revision, "session")
 	if thread == "" {
 		thread = session
 	}
-	p.ThreadID = identityUUID(seed, p.Provider, slot.ID, owner, session, thread, revision, "thread")
+	p.ThreadID = identityUUID(seed, p.Provider, p.SlotID, owner, session, thread, revision, "thread")
+	if mode == "per_account" {
+		p.ThreadID, err = p.correlationID("thread", thread)
+		if err != nil {
+			return nil, err
+		}
+		// A root session is its root thread; descendants carry their root's ID.
+		p.SessionID, err = p.correlationID("thread", session)
+		if err != nil {
+			return nil, err
+		}
+		if p.Provider == "codex" {
+			requestID := info.RequestId
+			if requestID == "" {
+				requestID = c.GetString("identity_request_id")
+				if requestID == "" {
+					requestID = uuid.NewString()
+					c.Set("identity_request_id", requestID)
+				}
+			}
+			if err := p.resolveCodexCorrelations(accountInput, thread, requestID); err != nil {
+				return nil, err
+			}
+		}
+	}
 	if mode == "shadow" {
 		return p, nil
 	}
@@ -187,12 +308,18 @@ func ResolveAttemptClientProfile(c *gin.Context, info *relaycommon.RelayInfo, pa
 		p.Headers.Set("Thread_id", p.ThreadID)
 		p.Headers.Set("X-Codex-Thread-Id", p.ThreadID)
 		p.Headers.Set("X-Codex-Installation-Id", p.InstallationID)
+		if mode == "per_account" {
+			p.Headers.Set("X-Client-Request-Id", p.ThreadID)
+		}
 	} else {
 		p.Headers.Set("X-Claude-Code-Session-Id", p.SessionID)
 	}
 	if preset := info.ChannelSetting.ClientProfile; preset != "" && preset != "inherit" {
 		if preset != p.Provider {
 			return nil, errors.New("client profile conflicts with upstream protocol")
+		}
+		if mode == "per_account" {
+			return p, nil
 		}
 		version := info.ChannelSetting.ClientVersion
 		if preset == "codex" {
@@ -219,6 +346,9 @@ func applyScopedClientIdentity(headers http.Header, payload map[string]any, p *A
 		return err
 	}
 	if p.Provider == "codex" {
+		if p.Mode == "per_account" {
+			return applyAccountIdentity(headers, payload, p)
+		}
 		metadata, _ := payload["client_metadata"].(map[string]any)
 		if metadata == nil {
 			metadata = make(map[string]any)
@@ -261,8 +391,20 @@ func applyScopedClientIdentity(headers http.Header, payload map[string]any, p *A
 }
 
 func EnforceAttemptIdentityHeaders(headers http.Header, p *AttemptClientProfile) error {
-	if p == nil || p.Mode != "per_channel" {
+	if p == nil || !ScopedIdentityMode(p.Mode) {
 		return nil
+	}
+	if p.Mode == "per_account" {
+		for _, name := range []string{"X-Codex-Window-Id", "X-Codex-Parent-Thread-Id", "X-Client-Request-Id"} {
+			if raw := headers.Get(name); raw != "" {
+				kind := accountIdentityFields[strings.ToLower(name)]
+				value, err := p.accountField(kind, raw)
+				if err != nil {
+					return err
+				}
+				headers.Set(name, value)
+			}
+		}
 	}
 	for name, values := range p.Headers {
 		for existing := range headers {
@@ -274,15 +416,20 @@ func EnforceAttemptIdentityHeaders(headers http.Header, p *AttemptClientProfile)
 	}
 	if p.Provider == "codex" && headers.Get("X-Codex-Turn-Metadata") != "" {
 		var metadata map[string]any
-		if err := common.Unmarshal([]byte(headers.Get("X-Codex-Turn-Metadata")), &metadata); err != nil || metadata == nil {
+		if err := common.UnmarshalPreserveNumbers([]byte(headers.Get("X-Codex-Turn-Metadata")), &metadata); err != nil || metadata == nil {
 			return errors.New("invalid Codex turn metadata")
+		}
+		if p.Mode == "per_account" {
+			if err := rewriteAccountMetadata(metadata, p); err != nil {
+				return err
+			}
 		}
 		for field, value := range map[string]string{"session_id": p.SessionID, "thread_id": p.ThreadID, "x-codex-installation-id": p.InstallationID} {
 			if _, exists := metadata[field]; exists {
 				metadata[field] = value
 			}
 		}
-		encoded, err := common.Marshal(metadata)
+		encoded, err := common.MarshalASCII(metadata)
 		if err != nil {
 			return err
 		}

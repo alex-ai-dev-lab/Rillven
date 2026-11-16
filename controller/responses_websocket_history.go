@@ -13,6 +13,7 @@ import (
 
 type responsesWSCreate struct {
 	kind, eventID, streamID, responseID string
+	idempotencyKey                      string
 	body                                []byte
 	warmup                              bool
 }
@@ -45,7 +46,7 @@ func parseResponsesWSCreate(data []byte) (responsesWSCreate, error) {
 		if common.Unmarshal(raw, &nested) != nil || nested == nil {
 			return event, errors.New("Invalid response.create payload.")
 		}
-		for _, key := range []string{"stream_id", "generate"} {
+		for _, key := range []string{"stream_id", "generate", "idempotency_key"} {
 			if value, ok := fields[key]; ok {
 				nested[key] = value
 			}
@@ -71,10 +72,15 @@ func parseResponsesWSCreate(data []byte) (responsesWSCreate, error) {
 		}
 		event.warmup = !generate
 	}
+	if raw, ok := fields["idempotency_key"]; ok {
+		if common.Unmarshal(raw, &event.idempotencyKey) != nil || string(raw) == "null" || len(event.idempotencyKey) == 0 || len(event.idempotencyKey) > 256 {
+			return event, errors.New("Invalid idempotency_key.")
+		}
+	}
 	if raw, ok := fields["background"]; ok && string(raw) != "false" && string(raw) != "null" {
 		return event, errors.New("background is not supported in WebSocket mode.")
 	}
-	for _, key := range []string{"type", "event_id", "stream_id", "response_id", "generate", "background"} {
+	for _, key := range []string{"type", "event_id", "stream_id", "response_id", "generate", "background", "idempotency_key"} {
 		delete(fields, key)
 	}
 	fields["stream"] = json.RawMessage("true")

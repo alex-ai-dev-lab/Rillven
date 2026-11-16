@@ -7,17 +7,26 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
 type IdentityView = {
+  mode?: string
   revision: number
   installation_id: string
   device_id: string
   multi_key: boolean
-  slots: Array<{ slot_id: string; installation_id: string; device_id: string }>
+  slots: Array<{
+    slot_id: string
+    installation_id: string
+    device_id: string
+    account_id?: string
+    revision?: number
+    credential_index?: number
+  }>
 }
 
 export function ChannelIdentityEditor({ channelId }: { channelId?: number }) {
   const { t } = useTranslation()
   const [value, setValue] = useState<IdentityView | null>(null)
   const [busy, setBusy] = useState(false)
+  const [selected, setSelected] = useState(0)
   const endpoint = `/api/channel/${channelId}/client_identity`
 
   const load = async () => {
@@ -28,7 +37,15 @@ export function ChannelIdentityEditor({ channelId }: { channelId?: number }) {
     }>(`${endpoint}/preview`, {})
     if (!result.success)
       throw new Error(result.message || t('Failed to load channel identity'))
-    setValue(result.data)
+    const nextSelected = Math.min(selected, result.data.slots.length - 1)
+    const slot = result.data.slots[Math.max(0, nextSelected)]
+    setValue({
+      ...result.data,
+      revision: slot?.revision || result.data.revision,
+      installation_id: slot?.installation_id || result.data.installation_id,
+      device_id: slot?.device_id || result.data.device_id,
+    })
+    setSelected(Math.max(0, nextSelected))
   }
   const perform = async (action: () => Promise<void>) => {
     if (busy) return
@@ -45,7 +62,7 @@ export function ChannelIdentityEditor({ channelId }: { channelId?: number }) {
       setBusy(false)
     }
   }
-  const save = async (reset: boolean) => {
+  const save = async (reset: boolean, updateProfile = false) => {
     if (!value) return
     const { data: result } = await api.put<{
       success: boolean
@@ -55,6 +72,9 @@ export function ChannelIdentityEditor({ channelId }: { channelId?: number }) {
       installation_id: value.installation_id,
       device_id: value.device_id,
       reset,
+      update_profile: updateProfile,
+      account_id: value.slots[selected]?.account_id,
+      credential_index: value.slots[selected]?.credential_index || 0,
     })
     if (!result.success)
       throw new Error(result.message || t('Failed to update channel identity'))
@@ -80,7 +100,7 @@ export function ChannelIdentityEditor({ channelId }: { channelId?: number }) {
       </Button>
       {value && (
         <>
-          {!value.multi_key && (
+          {(!value.multi_key || value.mode === 'per_account') && (
             <div className='grid gap-3 sm:grid-cols-2'>
               <label className='space-y-1 text-sm'>
                 {t('Installation ID (empty uses a stable generated value)')}
@@ -113,6 +133,29 @@ export function ChannelIdentityEditor({ channelId }: { channelId?: number }) {
                 <div>
                   {t('Credential slot')}: {slot.slot_id}
                 </div>
+                {slot.account_id && (
+                  <>
+                    <div>
+                      {t('Canonical upstream account ID')}: {slot.account_id}
+                    </div>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      disabled={busy}
+                      onClick={() => {
+                        setSelected(value.slots.indexOf(slot))
+                        setValue({
+                          ...value,
+                          installation_id: slot.installation_id,
+                          device_id: slot.device_id,
+                          revision: slot.revision || value.revision,
+                        })
+                      }}
+                    >
+                      {t('Edit account identity')}
+                    </Button>
+                  </>
+                )}
                 <div>
                   {t('Installation ID')}: {slot.installation_id}
                 </div>
@@ -123,6 +166,23 @@ export function ChannelIdentityEditor({ channelId }: { channelId?: number }) {
             ))}
           </div>
           <div className='flex flex-wrap gap-2'>
+            {value.mode === 'per_account' && (
+              <>
+                <p className='text-muted-foreground text-sm'>
+                  {t(
+                    'Identity changes apply to every channel using this upstream account.'
+                  )}
+                </p>
+                <Button
+                  type='button'
+                  variant='outline'
+                  disabled={busy}
+                  onClick={() => void perform(() => save(false, true))}
+                >
+                  {t('Apply the saved channel client profile to this account')}
+                </Button>
+              </>
+            )}
             <Button
               type='button'
               disabled={busy}

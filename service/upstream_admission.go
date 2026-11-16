@@ -32,9 +32,20 @@ func resolveUpstreamScopes(info *relaycommon.RelayInfo) (upstreamScopes, error) 
 		return upstreamScopes{}, err
 	}
 	account := conversationHash([]byte(endpoint.Scheme + "/" + strings.ToLower(endpoint.Host) + "/" + subject))
+	if channelIdentityScope(info) == "per_account" {
+		provider, principal := "codex", info.ApiKey
+		principal, err = upstreamAccountPrincipal(context.Background(), info.ChannelType, info.ApiKey, info.ChannelSetting)
+		if err != nil {
+			return upstreamScopes{}, err
+		}
+		if info.ChannelType == constant.ChannelTypeAnthropic {
+			provider = "claude"
+		}
+		account = model.AccountSubjectHash(provider, principal)
+	}
 	return upstreamScopes{
 		Account: account,
-		Model:   conversationHash([]byte(account + "/model/" + info.OriginModelName)),
+		Model:   conversationHash([]byte(account + "/model/" + info.UpstreamModel())),
 		Egress:  conversationHash([]byte("egress/" + info.ChannelSetting.EgressPolicy + "/" + info.ChannelSetting.Proxy)),
 	}, nil
 }
@@ -49,12 +60,12 @@ func admissionError(err error) *types.NewAPIError {
 // The SQL queue coordinates copies of the same account across gateway instances.
 // Only opted-in channels pay its storage cost. Existing token/user limits remain.
 func WithUpstreamAdmission(c *gin.Context, info *relaycommon.RelayInfo, call func() *types.NewAPIError) *types.NewAPIError {
-	settings, _ := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting)
-	if !settings.UpstreamCoordination {
-		return call()
-	}
 	if common.GetContextKeyInt(c, constant.ContextKeyChannelId) > 0 {
 		info.InitChannelMeta(c)
+	}
+	settings, _ := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting)
+	if !settings.UpstreamCoordination && settings.ClientIdentityMode != "per_account" && channelIdentityScope(info) != "per_account" {
+		return call()
 	}
 	scopes, err := resolveUpstreamScopes(info)
 	if err != nil {
@@ -68,10 +79,19 @@ func WithUpstreamAdmission(c *gin.Context, info *relaycommon.RelayInfo, call fun
 	if err != nil {
 		return admissionError(err)
 	}
-	if until > time.Now().UnixMilli() {
+	if until > 0 {
 		return admissionError(model.ErrUpstreamAdmissionBusy)
 	}
 	limit := max(1, min(common.GetEnvOrDefault("RILLVEN_UPSTREAM_CONCURRENCY", 4), 64))
+	if channelIdentityScope(info) == "per_account" {
+		halfOpen, err := model.AccountQuotaHalfOpen(c.Request.Context(), scopes.Account)
+		if err != nil {
+			return admissionError(err)
+		}
+		if halfOpen {
+			limit = 1
+		}
+	}
 	queueLimit := max(1, min(common.GetEnvOrDefault("RILLVEN_UPSTREAM_QUEUE", 32), 256))
 	wait := time.Duration(max(100, min(common.GetEnvOrDefault("RILLVEN_UPSTREAM_WAIT_MS", 3000), 30000))) * time.Millisecond
 	row, err := model.QueueUpstreamAdmission(c.Request.Context(), scopes.Account, uuid.NewString(), queueLimit, wait)
@@ -107,7 +127,7 @@ func WithUpstreamAdmission(c *gin.Context, info *relaycommon.RelayInfo, call fun
 	if err != nil {
 		return admissionError(err)
 	}
-	if until > time.Now().UnixMilli() {
+	if until > 0 {
 		return admissionError(model.ErrUpstreamAdmissionBusy)
 	}
 	if info.ChannelConfigVersion > 0 {
@@ -152,14 +172,21 @@ func WithUpstreamAdmission(c *gin.Context, info *relaycommon.RelayInfo, call fun
 		return admissionError(context.Cause(ctx))
 	}
 	if result != nil && !types.IsLocalRelayRejection(result) {
-		deadline := time.Now().Add(max(RouterCooldownTTL(), min(result.RetryHint, 24*time.Hour))).UnixMilli()
+		now, clockErr := model.DatabaseMillis(context.WithoutCancel(ctx))
+		if clockErr != nil {
+			return result
+		}
+		deadline := now + max(RouterCooldownTTL(), min(result.RetryHint, 24*time.Hour)).Milliseconds()
 		scope := ""
 		switch result.StatusCode {
 		case http.StatusTooManyRequests:
 			scope = scopes.Model
+			if UsesAccountIdentity(info) {
+				scope = scopes.Account
+			}
 		case http.StatusUnauthorized:
 			scope = scopes.Account
-			deadline = time.Now().Add(time.Hour).UnixMilli()
+			deadline = now + time.Hour.Milliseconds()
 		case http.StatusProxyAuthRequired:
 			if settings.Proxy != "" {
 				scope = scopes.Egress
@@ -177,14 +204,19 @@ func WithUpstreamAdmission(c *gin.Context, info *relaycommon.RelayInfo, call fun
 // Accept reset headers only together with an explicit exhausted counter.
 // Successful older calls never clear a newer quota window.
 func ObserveUpstreamQuotaHeaders(ctx context.Context, info *relaycommon.RelayInfo, headers http.Header) {
-	if info == nil || info.ChannelMeta == nil || !info.ChannelSetting.UpstreamCoordination {
+	ObserveCodexAccountQuota(ctx, info, headers, nil)
+	if info == nil || info.ChannelMeta == nil || !info.ChannelSetting.UpstreamCoordination && !UsesAccountIdentity(info) {
 		return
 	}
 	scopes, err := resolveUpstreamScopes(info)
 	if err != nil {
 		return
 	}
-	now := time.Now()
+	nowMillis, clockErr := model.DatabaseMillis(ctx)
+	if clockErr != nil {
+		return
+	}
+	now := time.UnixMilli(nowMillis)
 	var until time.Time
 	for _, resource := range []string{"requests", "tokens"} {
 		remaining, err := strconv.ParseInt(headers.Get("x-ratelimit-remaining-"+resource), 10, 64)
@@ -208,7 +240,11 @@ func ObserveUpstreamQuotaHeaders(ctx context.Context, info *relaycommon.RelayInf
 	if until.After(now) {
 		persist, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 		defer cancel()
-		if err := model.BlockUpstreamScope(persist, scopes.Model, until.UnixMilli()); err != nil {
+		scope := scopes.Model
+		if UsesAccountIdentity(info) {
+			scope = scopes.Account
+		}
+		if err := model.BlockUpstreamScope(persist, scope, until.UnixMilli()); err != nil {
 			common.SysLog("upstream quota window persistence failed")
 		}
 	}

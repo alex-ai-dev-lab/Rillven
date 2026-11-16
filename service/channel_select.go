@@ -220,6 +220,9 @@ func channelMatchesRetryRequirements(param *RetryParam, channel *model.Channel) 
 	if param == nil || channel == nil {
 		return false
 	}
+	if param.Ctx != nil && !ChannelHasAvailableAccount(param.Ctx.Request.Context(), channel) {
+		return false
+	}
 	if ShouldAvoidChannelForSession(param.Ctx, channel.Id) {
 		return false
 	}
@@ -478,6 +481,10 @@ func SelectUntriedEnabledMultiKey(param *RetryParam, channel *model.Channel) (st
 	// replacement，避免无故改变首个请求的 key。
 	if len(tried) == 0 {
 		return "", 0, false, nil
+	}
+	if model.ChannelUsesAccountIdentity(channel) {
+		key, index, err := SelectAvailableAccountKey(param.Ctx.Request.Context(), channel, "", -1, false, tried)
+		return key, index, err == nil, err
 	}
 	for index := range keys {
 		if tried != nil && tried[index] {

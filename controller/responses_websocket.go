@@ -367,6 +367,11 @@ func (s *responsesWSSession) runTurn(lane *responsesWSLane, active *responsesWSA
 	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "/v1/responses", bytes.NewReader(body))
 	req.RequestURI = "/v1/responses"
 	req.Header = s.headers.Clone()
+	// A handshake key cannot represent all turns of a persistent connection.
+	req.Header.Del("Idempotency-Key")
+	if event.idempotencyKey != "" {
+		req.Header.Set("Idempotency-Key", event.idempotencyKey)
+	}
 	req.RemoteAddr = s.remoteAddr
 	responsesWSEngine().ServeHTTP(writer, req)
 	if execution.SettlementError != nil {

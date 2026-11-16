@@ -25,10 +25,11 @@ type ChannelIdentity struct {
 }
 
 type ChannelIdentitySecret struct {
-	Seed           string `json:"seed"`
-	SlotSeed       string `json:"slot_seed"`
-	InstallationID string `json:"installation_id,omitempty"`
-	DeviceID       string `json:"device_id,omitempty"`
+	Seed              string `json:"seed"`
+	SlotSeed          string `json:"slot_seed"`
+	InstallationID    string `json:"installation_id,omitempty"`
+	DeviceID          string `json:"device_id,omitempty"`
+	CreatedForAccount bool   `json:"created_for_account,omitempty"`
 }
 
 type ChannelCredentialSlot struct {
@@ -74,7 +75,7 @@ func encryptChannelIdentity(r *ChannelIdentity, secret ChannelIdentitySecret) er
 	return err
 }
 
-func EnsureChannelIdentity(ctx context.Context, channelID int) (*ChannelIdentity, error) {
+func EnsureChannelIdentity(ctx context.Context, channelID int, accountMode ...bool) (*ChannelIdentity, error) {
 	if DB == nil || channelID <= 0 {
 		return nil, errors.New("channel identity database or channel is unavailable")
 	}
@@ -91,7 +92,7 @@ func EnsureChannelIdentity(ctx context.Context, channelID int) (*ChannelIdentity
 		return nil, err
 	}
 	row = ChannelIdentity{ChannelID: channelID, SpaceID: uuid.NewString(), Revision: 1}
-	if err := encryptChannelIdentity(&row, ChannelIdentitySecret{Seed: base64.StdEncoding.EncodeToString(seed[:32]), SlotSeed: base64.StdEncoding.EncodeToString(seed[32:])}); err != nil {
+	if err := encryptChannelIdentity(&row, ChannelIdentitySecret{Seed: base64.StdEncoding.EncodeToString(seed[:32]), SlotSeed: base64.StdEncoding.EncodeToString(seed[32:]), CreatedForAccount: len(accountMode) > 0 && accountMode[0]}); err != nil {
 		return nil, err
 	}
 	// Concurrent first requests use the persisted winner, never their private seed.

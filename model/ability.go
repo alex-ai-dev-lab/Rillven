@@ -81,14 +81,6 @@ func GetChannelExcludingWithPolicy(group string, model string, retry int, exclud
 	}
 
 	if len(excluded) > 0 {
-		filtered := abilities[:0]
-		for _, ability := range abilities {
-			if excluded[ability.ChannelId] {
-				continue
-			}
-			filtered = append(filtered, ability)
-		}
-		abilities = filtered
 		// Mirror the in-memory cache path (GetRandomSatisfiedChannelExcludingWithPolicy):
 		// once we are explicitly excluding channels (e.g. retrying after a failure),
 		// restart priority selection from the highest remaining priority bucket
@@ -97,6 +89,30 @@ func GetChannelExcludingWithPolicy(group string, model string, retry int, exclud
 	}
 	abilities = filterChannelModelStatusAbilities(abilities)
 	abilities = filterRandomSelectableAbilities(abilities)
+	poolIDs := make([]int, 0, len(abilities))
+	for _, a := range abilities {
+		poolIDs = append(poolIDs, a.ChannelId)
+	}
+	var poolChannels []*Channel
+	if len(poolIDs) > 0 {
+		if err := DB.Where("id IN ?", poolIDs).Find(&poolChannels).Error; err != nil {
+			return nil, err
+		}
+	}
+	var poolErr error
+	policy, poolErr = prepareAccountRoutingPolicy(poolChannels, excluded, policy)
+	if poolErr != nil {
+		return nil, poolErr
+	}
+	if len(excluded) > 0 {
+		filtered := abilities[:0]
+		for _, ability := range abilities {
+			if !excluded[ability.ChannelId] {
+				filtered = append(filtered, ability)
+			}
+		}
+		abilities = filtered
+	}
 	// 注意: filterProviderRoutingAbilities 会按 provider order rank 重排，破坏上面 SQL 的
 	// priority DESC 顺序。selectAbilitiesByRetryPriority 已改为自己按优先级降序，
 	// 不再依赖传入顺序。

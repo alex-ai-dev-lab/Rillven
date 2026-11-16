@@ -45,6 +45,20 @@ func TestCodexRefreshJournalSerializesSharedGrantAndRetainsReceipt(t *testing.T)
 	require.NotContains(t, row.Ciphertext, "grant-new")
 }
 
+func TestCodexRefreshRejectsManuallyDisabledMultiKeySlot(t *testing.T) {
+	setupIdentityStateTest(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.CodexRefreshJournal{}, &model.Channel{}))
+	key, err := common.Marshal(&CodexOAuthKey{AccountID: "account", Email: "member@example.test", AccessToken: "access", RefreshToken: "grant"})
+	require.NoError(t, err)
+	channel := &model.Channel{Type: constant.ChannelTypeCodex, Status: common.ChannelStatusEnabled, Key: string(key), ChannelInfo: model.ChannelInfo{IsMultiKey: true, MultiKeyStatusList: map[int]int{0: common.ChannelStatusManuallyDisabled}}}
+	require.NoError(t, model.DB.Create(channel).Error)
+	_, _, err = RefreshCodexChannelCredential(t.Context(), channel.Id, CodexCredentialRefreshOptions{Credential: string(key)})
+	require.ErrorContains(t, err, "does not permit refresh")
+	var sent int64
+	require.NoError(t, model.DB.Model(&model.CodexRefreshJournal{}).Count(&sent).Error)
+	require.Zero(t, sent, "a disabled slot never claims or sends a grant")
+}
+
 func TestCodexRefreshBeforeSendRejectionReleasesUnsentGrant(t *testing.T) {
 	setupIdentityStateTest(t)
 	require.NoError(t, model.DB.AutoMigrate(&model.CodexRefreshJournal{}))

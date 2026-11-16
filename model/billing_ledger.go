@@ -764,7 +764,7 @@ func ReserveMoreBillingLedger(id uint64, targetQuota int64) (*BillingLedger, err
 
 func mutateBillingLedger(id uint64, desired string, targetQuota int64, beforeSave func(*gorm.DB, *BillingLedger) error) (*BillingLedger, error) {
 	var result BillingLedger
-	err := DB.Transaction(func(tx *gorm.DB) error {
+	err := retryStateTransaction(context.Background(), DB, func(tx *gorm.DB) error {
 		ledger, err := lockBillingLedgerTx(tx, id)
 		if err != nil {
 			return err
@@ -1048,7 +1048,7 @@ func MarkBillingLedgerForReconcile(id uint64, desired string, quota int64, cause
 	if cause != nil {
 		message = truncateBillingError(cause.Error())
 	}
-	return DB.Transaction(func(tx *gorm.DB) error {
+	return retryStateTransaction(context.Background(), DB, func(tx *gorm.DB) error {
 		ledger, err := lockBillingLedgerTx(tx, id)
 		if err != nil {
 			return err

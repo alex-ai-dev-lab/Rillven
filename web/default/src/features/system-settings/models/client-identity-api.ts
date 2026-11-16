@@ -56,7 +56,7 @@ export interface GenericIdentityConfig {
 }
 
 export interface ClientIdentitySetting {
-  scope?: 'legacy' | 'per_channel' | 'shadow' | 'disabled'
+  scope?: 'legacy' | 'per_channel' | 'per_account' | 'shadow' | 'disabled'
   enabled: boolean
   apply_to_all_openai_responses: boolean
   apply_to_all_claude_messages: boolean

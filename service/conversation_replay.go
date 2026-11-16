@@ -32,6 +32,7 @@ type conversationPayload struct {
 	Output       []common.RawMessage `json:"output"`
 	Compact      bool                `json:"compact,omitempty"`
 	Materialized bool                `json:"materialized,omitempty"`
+	Response     common.RawMessage   `json:"response,omitempty"`
 }
 
 // A request owns its immutable input and parent graph. Each attempt has a fresh
@@ -46,6 +47,7 @@ type ConversationTurn struct {
 	UnknownState                                    bool
 	LookupError                                     error
 	Attempts                                        int
+	ReplayInput                                     []common.RawMessage
 	Attempt                                         *conversationAttempt
 }
 
@@ -55,6 +57,10 @@ func conversationCheckpointAAD(node *model.ConversationCheckpoint) string {
 	// Bind ancestry and upstream ownership as well as plaintext. Mutable delivery
 	// state and byte accounting are deliberately outside the authenticated data.
 	metadata, _ := common.Marshal([]any{node.Owner, node.ID, node.SessionID, node.ParentID, node.ChannelID, node.SlotID, node.RouteKey, node.UpstreamID, node.Depth, node.Portable, node.Shadow, node.NativeState})
+	if node.AccountID != "" {
+		metadata, _ = common.Marshal([]any{node.AccountID, conversationHash(metadata)})
+		return "conversation/v2/" + conversationHash(metadata)
+	}
 	return "conversation/v1/" + conversationHash(metadata)
 }
 
@@ -204,6 +210,12 @@ func PrepareConversationContext(c *gin.Context) *types.NewAPIError {
 			return conversationAPIError(err)
 		}
 		t.Input = append(history, t.Delta...)
+		if parent.AccountID != "" && previous != "" {
+			t.Input, t.Delta, err = resolveAccountContinuation(history, input, c.GetHeader("X-Rillven-History-Mode"))
+			if err != nil {
+				return conversationAPIError(err)
+			}
+		}
 		t.Portable = parent.Portable
 		fields["input"], _ = common.Marshal(t.Input)
 		delete(fields, "previous_response_id")
@@ -219,6 +231,7 @@ func PrepareConversationContext(c *gin.Context) *types.NewAPIError {
 		t.UnknownState = true
 	}
 	t.Portable = t.Portable && portableConversationItems(t.Input)
+	t.ReplayInput = append([]common.RawMessage(nil), t.Input...)
 	t.UnsafeTools = hasUnrecoverableServerTools(fields["tools"])
 	if raw := fields["conversation"]; len(raw) > 0 && string(raw) != "null" {
 		t.UnknownState = true
@@ -281,6 +294,9 @@ func (t *ConversationTurn) replay(ctx context.Context, parent *model.Conversatio
 func portableConversationItems(items []common.RawMessage) bool {
 	for _, raw := range items {
 		item := gjson.ParseBytes(raw)
+		if len(accountPrivateReferences(item)) > 0 || item.Get("encrypted_content").Exists() || item.Get("reference_id").Exists() || item.Get("resource_id").Exists() {
+			return false
+		}
 		switch item.Get("type").String() {
 		case "", "message", "function_call", "function_call_output", "custom_tool_call", "custom_tool_call_output":
 		default:
@@ -387,6 +403,9 @@ func ActivateConversation(c *gin.Context, info *relaycommon.RelayInfo) (apiErr *
 		return conversationAPIError(err)
 	}
 	t.RequestID = info.RequestId
+	if failure := claimOrReplayConversationRequest(c, t, info); failure != nil {
+		return failure
+	}
 	if t.Managed {
 		c.Set(ContextConversationSession, t.SessionID)
 	}

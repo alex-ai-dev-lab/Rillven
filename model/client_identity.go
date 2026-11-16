@@ -83,7 +83,9 @@ func GetClientIdentitySetting() ClientIdentitySetting {
 	if !exists || strings.TrimSpace(value) == "" {
 		// 初始化默认配置
 		setting := getDefaultClientIdentitySetting()
-		_ = saveClientIdentitySetting(setting)
+		if DB != nil {
+			_ = saveClientIdentitySetting(setting)
+		}
 		return setting
 	}
 
@@ -91,7 +93,9 @@ func GetClientIdentitySetting() ClientIdentitySetting {
 	if err := common.Unmarshal([]byte(value), &setting); err != nil {
 		common.SysLog("client identity setting JSON invalid, using defaults: " + err.Error())
 		setting = getDefaultClientIdentitySetting()
-		_ = saveClientIdentitySetting(setting)
+		if DB != nil {
+			_ = saveClientIdentitySetting(setting)
+		}
 		return setting
 	}
 
@@ -190,7 +194,7 @@ func saveClientIdentitySetting(setting ClientIdentitySetting) error {
 func UpdateClientIdentitySetting(setting ClientIdentitySetting) error {
 	switch setting.Scope {
 	case "", "legacy", "disabled":
-	case "per_channel", "shadow":
+	case "per_channel", "per_account", "shadow":
 		if _, err := common.RelayStateCipher(); err != nil {
 			return err
 		}

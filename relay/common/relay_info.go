@@ -102,6 +102,7 @@ type ModelMappingRouteCursor struct {
 }
 
 type RelayInfo struct {
+	ClientProfilePreview        bool // root-only identity preview; never a relay configuration
 	TokenId                     int
 	TokenKey                    string
 	TokenGroup                  string
@@ -196,8 +197,9 @@ type RelayInfo struct {
 	ModelMappingRoute                         ModelMappingRouteCursor
 	// UpstreamWireModel describes the final JSON body without changing provider
 	// URL/conversion or billing model semantics. Nil means not observed here.
-	UpstreamWireModel        *string
-	ModelMappingRetryBlocked bool
+	UpstreamWireModel          *string
+	UpstreamQuotaObservationAt int64
+	ModelMappingRetryBlocked   bool
 
 	// AntiPoisonGuardPrefix is retained for older patch compatibility. The
 	// current upstream-error normalization path does not inject guard prompts.

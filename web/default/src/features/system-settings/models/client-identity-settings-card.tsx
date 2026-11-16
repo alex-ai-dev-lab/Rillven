@@ -28,6 +28,7 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -167,9 +168,13 @@ function normalizeClientIdentityImport(
     : current.generic
 
   return {
-    scope: ['legacy', 'per_channel', 'shadow', 'disabled'].includes(
-      String(payload.scope)
-    )
+    scope: [
+      'legacy',
+      'per_channel',
+      'per_account',
+      'shadow',
+      'disabled',
+    ].includes(String(payload.scope))
       ? (payload.scope as ClientIdentitySetting['scope'])
       : current.scope,
     enabled: toBoolean(payload.enabled, current.enabled),
@@ -282,6 +287,7 @@ function normalizeClientIdentityImport(
 }
 
 export function ClientIdentitySettingsCard() {
+  const { t } = useTranslation()
   const [importOpen, setImportOpen] = useState(false)
   const [importText, setImportText] = useState('')
   const { data: setting, isLoading } = useClientIdentitySetting()
@@ -468,6 +474,9 @@ export function ClientIdentitySettingsCard() {
                     <SelectContent>
                       <SelectItem value='per_channel'>
                         每渠道独立身份
+                      </SelectItem>
+                      <SelectItem value='per_account'>
+                        {t('Shared upstream account identity')}
                       </SelectItem>
                       <SelectItem value='shadow'>
                         观察独立身份，保留旧出站行为

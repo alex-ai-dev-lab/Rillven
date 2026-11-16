@@ -6621,5 +6621,18 @@
   "Parameter overrides after protocol conversion": "Parameter overrides after protocol conversion",
   "Use the existing operations JSON syntax for target-protocol fields. These operations run once per upstream attempt, after conversion.": "Use the existing operations JSON syntax for target-protocol fields. These operations run once per upstream attempt, after conversion.",
   "Must be a JSON object": "Must be a JSON object",
-  "Not provided by this channel": "Not provided by this channel"
+  "Not provided by this channel": "Not provided by this channel",
+  "Shared upstream account identity": "Shared upstream account identity",
+  "Canonical upstream account ID": "Canonical upstream account ID",
+  "Optional for adopting an existing account identity. Leave empty for automatic account matching.": "Optional for adopting an existing account identity. Leave empty for automatic account matching.",
+  "Stable account subject for API keys": "Stable account subject for API keys",
+  "Optional administrator label for separately issued keys of the same account. Use single-key channels for this label; Codex OAuth accounts match automatically.": "Optional administrator label for separately issued keys of the same account. Use single-key channels for this label; Codex OAuth accounts match automatically.",
+  "Codex client platform": "Codex client platform",
+  "Codex client terminal": "Codex client terminal",
+  "Pinned when the upstream account is first registered.": "Pinned when the upstream account is first registered.",
+  "Edit account identity": "Edit account identity",
+  "Identity changes apply to every channel using this upstream account.": "Identity changes apply to every channel using this upstream account.",
+  "Upstream context token limit": "Upstream context token limit",
+  "Zero uses the provider limit. A configured limit rejects oversized recovered context without dropping history.": "Zero uses the provider limit. A configured limit rejects oversized recovered context without dropping history.",
+  "Apply the saved channel client profile to this account": "Apply the saved channel client profile to this account"
 }

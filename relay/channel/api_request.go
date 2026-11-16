@@ -639,6 +639,9 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	if profileErr != nil {
 		return nil, fmt.Errorf("resolve channel client identity: %w", profileErr)
 	}
+	if err := service.ValidateAccountRequestHistory(c, profile, finalBody); err != nil {
+		return nil, err
+	}
 	processedBody, identityHeaders, identityErr := service.ApplyClientIdentityToRequestBytesWithOptions(
 		identityPath,
 		c.Request.Header,
@@ -649,7 +652,7 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		},
 	)
 	if identityErr != nil {
-		if profile != nil && profile.Mode == "per_channel" {
+		if profile != nil && service.ScopedIdentityMode(profile.Mode) {
 			return nil, identityErr
 		}
 		logger.LogError(c, fmt.Sprintf("client identity injection failed: %s", identityErr.Error()))
@@ -694,7 +697,7 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 	applyHeaderRules(req, info)
 	// The selected profile owns identity fields. Later generic header rules must
 	// not make the headers disagree with the body or reuse a different session.
-	if profile != nil && profile.Mode == "per_channel" {
+	if profile != nil && service.ScopedIdentityMode(profile.Mode) {
 		if err := service.EnforceAttemptIdentityHeaders(req.Header, profile); err != nil {
 			return nil, err
 		}
@@ -896,6 +899,12 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 	execution := common.GetResponsesWSExecution(req.Context())
 	if execution != nil && execution.Transport != nil && info.ChannelSetting.ResponsesWebSocket && info.IsStream && !info.IsChannelTest &&
 		info.GetFinalRequestRelayFormat() == types.RelayFormatOpenAIResponses {
+		if service.UsesAccountIdentity(info) {
+			info.UpstreamQuotaObservationAt, err = model.DatabaseMillis(req.Context())
+			if err != nil {
+				return nil, err
+			}
+		}
 		resp, err = execution.Transport.RoundTrip(req, info, execution)
 	} else {
 		// HTTP attempts own cancellation; WebSocket turns manage their own close
@@ -903,6 +912,13 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 		var ctx context.Context
 		ctx, cancel = context.WithCancel(req.Context())
 		req = req.WithContext(ctx)
+		if service.UsesAccountIdentity(info) {
+			info.UpstreamQuotaObservationAt, err = model.DatabaseMillis(req.Context())
+			if err != nil {
+				cancel()
+				return nil, err
+			}
+		}
 		resp, err = client.Do(req)
 	}
 	if err != nil {
@@ -932,6 +948,7 @@ func doRequest(c *gin.Context, req *http.Request, info *common.RelayInfo) (*http
 
 	service.CaptureUpstreamRequestID(c, resp.Header)
 	service.ObserveUpstreamQuotaHeaders(c.Request.Context(), info, resp.Header)
+	service.ObserveConversationAffinityHeaders(info, resp.Header)
 
 	if req.Body != nil {
 		_ = req.Body.Close()

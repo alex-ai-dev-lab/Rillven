@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"net/http"
 	"strings"
 	"time"
 
@@ -22,15 +23,18 @@ import (
 )
 
 type conversationAttempt struct {
+	accountID                     string
 	turn                          *ConversationTurn
 	info                          *relaycommon.RelayInfo
 	ctx                           context.Context
 	channelID                     int
 	slotID, routeKey, upstreamID  string
 	output                        []common.RawMessage
+	response                      common.RawMessage
 	resources                     []model.ConversationResource
 	complete, prepared, published bool
 	nativeState                   bool
+	legacyNative                  bool
 	deltas                        map[string]hash.Hash
 	deltaBytes                    int
 	itemIdentities                map[int][6]string
@@ -78,7 +82,7 @@ func conversationCredentialID(channelType int, key string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		key, err = codexCredentialSubject(credential)
+		key, err = legacyCodexCredentialSubject(credential)
 		if err != nil {
 			return "", err
 		}
@@ -118,6 +122,19 @@ func BeginConversationAttempt(c *gin.Context, info *relaycommon.RelayInfo) (apiE
 	if common.GetContextKeyInt(c, constant.ContextKeyChannelId) > 0 {
 		info.InitChannelMeta(c)
 	}
+	if err := model.CheckConversationDeletion(c.Request.Context(), t.Owner, t.SessionID); err != nil {
+		return conversationAPIError(err)
+	}
+	if info.ChannelMeta != nil {
+		limit := info.ChannelSetting.UpstreamContextTokens
+		budget := uint64(max(0, info.GetEstimatePromptTokens()))
+		if request, ok := info.Request.(*dto.OpenAIResponsesRequest); ok && request.MaxOutputTokens != nil {
+			budget += uint64(*request.MaxOutputTokens)
+		}
+		if limit > 0 && budget > uint64(limit) {
+			return conversationAPIError(model.ErrConversationLimit)
+		}
+	}
 	if t.Attempt != nil && t.Attempt.prepared {
 		return types.NewConversationStoreUnavailable()
 	}
@@ -129,6 +146,9 @@ func BeginConversationAttempt(c *gin.Context, info *relaycommon.RelayInfo) (apiE
 		return types.NewConversationContextUnavailable()
 	}
 	t.Attempts++
+	if t.ReplayInput != nil {
+		t.Input = append([]common.RawMessage(nil), t.ReplayInput...)
+	}
 	if info.ChannelConfigVersion > 0 {
 		var count int64
 		if err := model.DB.WithContext(c.Request.Context()).Model(&model.Channel{}).Where("id = ? AND config_version = ? AND status = ?", info.ChannelId, info.ChannelConfigVersion, common.ChannelStatusEnabled).Count(&count).Error; err != nil {
@@ -145,6 +165,14 @@ func BeginConversationAttempt(c *gin.Context, info *relaycommon.RelayInfo) (apiE
 	// Include changes that invalidate upstream ownership, without persisting any
 	// secret URL/headers. Device resets likewise invalidate a stateful binding.
 	revision := int64(0)
+	accountID := ""
+	if channelIdentityScope(info) == "per_account" {
+		profile, profileErr := ResolveAttemptClientProfile(c, info, c.Request.URL.Path, t.Original, info.ChannelType == constant.ChannelTypeCodex)
+		if profileErr != nil {
+			return types.NewConversationContextUnavailable()
+		}
+		revision, accountID = profile.IdentityRevision, profile.AccountID
+	}
 	if mode := channelIdentityScope(info); mode == "per_channel" || mode == "shadow" {
 		identity, identityErr := model.EnsureChannelIdentity(c.Request.Context(), info.ChannelId)
 		if identityErr != nil {
@@ -159,6 +187,16 @@ func BeginConversationAttempt(c *gin.Context, info *relaycommon.RelayInfo) (apiE
 	route := conversationHash(routeFields)
 	if t.Parent != nil {
 		sameTarget := t.Parent.ChannelID == info.ChannelId && t.Parent.SlotID == slot && t.Parent.RouteKey == route
+		if accountID != "" && t.Parent.AccountID == "" && !(sameTarget && t.Parent.NativeState && t.Parent.UpstreamID != "" && t.Attempts == 1) {
+			return types.NewConversationContextUnavailable()
+		}
+		if accountID != "" && t.Parent.AccountID != "" {
+			projected, err := projectAccountHistory(c.Request.Context(), t, accountID, t.Parent.AccountID != accountID)
+			if err != nil {
+				return conversationAPIError(err)
+			}
+			t.Input = projected
+		}
 		if !t.Portable && !sameTarget {
 			return types.NewConversationContextUnavailable()
 		}
@@ -187,12 +225,53 @@ func BeginConversationAttempt(c *gin.Context, info *relaycommon.RelayInfo) (apiE
 			return types.NewConversationContextUnavailable()
 		}
 	}
+	if accountID != "" && t.Parent == nil {
+		projected, err := projectAccountHistory(c.Request.Context(), t, accountID, false)
+		if err != nil {
+			return conversationAPIError(err)
+		}
+		t.Input = projected
+		if req, ok := info.Request.(*dto.OpenAIResponsesRequest); ok {
+			copy := *req
+			copy.Input, err = common.Marshal(projected)
+			if err != nil {
+				return types.NewConversationStoreUnavailable()
+			}
+			info.Request = &copy
+			body, err := common.Marshal(copy)
+			if err != nil {
+				return types.NewConversationStoreUnavailable()
+			}
+			if err := ReplaceConversationBody(c, body); err != nil {
+				return types.NewConversationStoreUnavailable()
+			}
+		}
+	}
 	a := &conversationAttempt{turn: t, info: info, ctx: c.Request.Context(), channelID: info.ChannelId, slotID: slot, routeKey: route}
+	a.legacyNative = accountID != "" && t.Parent != nil && t.Parent.AccountID == "" && t.Parent.ChannelID == info.ChannelId && t.Parent.SlotID == slot && t.Parent.RouteKey == route && t.Parent.NativeState && t.Parent.UpstreamID != "" && t.Attempts == 1
+	a.accountID = accountID
 	t.Attempt, info.Conversation, info.SettlementError = a, a, nil
 	if t.Shadow {
 		info.Conversation = &shadowConversation{conversationAttempt: a}
 	}
 	return nil
+}
+
+// Capture only tokens actually returned on this attempt. The digest registry
+// makes future affinity use subject to owner and account authorization.
+func ObserveConversationAffinityHeaders(info *relaycommon.RelayInfo, headers http.Header) {
+	if info == nil || info.Conversation == nil {
+		return
+	}
+	a, ok := info.Conversation.(*conversationAttempt)
+	if !ok || a.accountID == "" {
+		return
+	}
+	for _, name := range []string{"X-Codex-Turn-State", "X-Codex-Routing-Hint"} {
+		if value := headers.Get(name); value != "" && len(value) <= 4096 {
+			a.resources = append(a.resources, model.ConversationResource{Owner: a.turn.Owner, Kind: "affinity", Digest: conversationHash([]byte(value)), CheckpointID: a.turn.ResponseID, SessionID: a.turn.SessionID})
+		}
+	}
 }
 
 func ConversationCanRetry(c *gin.Context, failure *types.NewAPIError) bool {
@@ -321,6 +400,17 @@ func (a *conversationAttempt) ObserveResponse(payload []byte, stream bool) ([]by
 		}
 		for _, raw := range a.output {
 			item := gjson.ParseBytes(raw)
+			if a.accountID != "" {
+				for _, reference := range accountPrivateReferences(item) {
+					a.resources = append(a.resources, model.ConversationResource{Owner: a.turn.Owner, Kind: reference.kind, Digest: conversationHash([]byte(reference.id)), CheckpointID: a.turn.ResponseID, SessionID: a.turn.SessionID})
+				}
+				if item.Get("type").String() == "reasoning" && item.Get("encrypted_content").String() != "" {
+					a.resources = append(a.resources, model.ConversationResource{Owner: a.turn.Owner, Kind: "reasoning", Digest: conversationHash([]byte(item.Get("encrypted_content").String())), CheckpointID: a.turn.ResponseID, SessionID: a.turn.SessionID})
+				}
+			}
+			if a.accountID != "" && item.Get("id").String() != "" {
+				a.resources = append(a.resources, model.ConversationResource{Owner: a.turn.Owner, Kind: "item", Digest: conversationHash([]byte(item.Get("id").String())), CheckpointID: a.turn.ResponseID, SessionID: a.turn.SessionID})
+			}
 			if item.Get("type").String() == "compaction" {
 				if item.Get("encrypted_content").String() == "" {
 					return nil, errors.New("empty compaction capsule")
@@ -329,6 +419,11 @@ func (a *conversationAttempt) ObserveResponse(payload []byte, stream bool) ([]by
 			}
 		}
 		a.complete = true
+		if path == "" {
+			a.response = append([]byte(nil), payload...)
+		} else {
+			a.response = []byte(gjson.GetBytes(payload, "response").Raw)
+		}
 	}
 	return payload, nil
 }
@@ -354,13 +449,23 @@ func (a *conversationAttempt) PrepareCommit(quota int, ledgerID uint64) error {
 	for _, item := range a.output {
 		// Hidden reasoning has no portable decryption contract. Keep only the
 		// visible message/tool history; never send another account's ciphertext.
-		if kind := gjson.GetBytes(item, "type").String(); kind == "reasoning" || kind == "compaction" {
+		if kind := gjson.GetBytes(item, "type").String(); (kind == "reasoning" || kind == "compaction") && a.accountID == "" {
 			continue
 		}
+		if a.accountID != "" && a.turn.Compact && gjson.GetBytes(item, "type").String() == "compaction" {
+			continue
+		} // complete preimage is saved instead
 		output = append(output, item)
 	}
 	t := a.turn
-	payload := conversationPayload{Version: 1, Input: t.Delta, Output: output, Compact: t.Compact}
+	payload := conversationPayload{Version: 1, Input: t.Delta, Output: output, Compact: t.Compact, Response: a.response}
+	if a.accountID != "" {
+		if t.Parent == nil || t.Compact {
+			payload.Input, payload.Materialized = t.Input, true
+		} else {
+			payload.Input = t.Input[len(t.Input)-len(t.Delta):]
+		}
+	}
 	if t.Parent != nil && (t.Parent.Depth+1)%32 == 0 {
 		payload.Input, payload.Materialized = t.Input, true
 	}
@@ -377,6 +482,7 @@ func (a *conversationAttempt) PrepareCommit(quota int, ledgerID uint64) error {
 	}
 	now := time.Now().Unix()
 	checkpoint := model.ConversationCheckpoint{ID: t.ResponseID, Owner: t.Owner, SessionID: t.SessionID, ChannelID: a.channelID, SlotID: a.slotID, RouteKey: a.routeKey, UpstreamID: a.upstreamID, UpstreamHash: conversationHash([]byte(a.upstreamID)), State: "prepared", ContentHash: conversationHash(plain), Depth: 1, Portable: t.Portable && (t.Compact || portableConversationItems(output)), CreatedAt: now}
+	checkpoint.AccountID = a.accountID
 	checkpoint.Shadow, checkpoint.NativeState = t.Shadow, a.nativeState
 	if t.Parent != nil {
 		checkpoint.ParentID, checkpoint.Depth = t.Parent.ID, t.Parent.Depth+1

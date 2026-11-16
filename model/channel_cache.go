@@ -257,6 +257,22 @@ func GetRandomSatisfiedChannelExcludingWithPolicy(group string, model string, re
 
 	snapshot := loadChannelRuntimeSnapshot()
 	now := common.GetTimestamp()
+	basePolicy := policy
+	poolChannels := make([]*Channel, 0)
+	if models := snapshot.groupModels[group]; models != nil {
+		for _, bucket := range models[model] {
+			for _, entry := range bucket.entries {
+				if channelSelectionEntrySelectable(entry, excluded, nil, true, now) {
+					poolChannels = append(poolChannels, entry.channel)
+				}
+			}
+		}
+	}
+	var policyErr error
+	policy, policyErr = prepareAccountRoutingPolicy(poolChannels, excluded, policy)
+	if policyErr != nil {
+		return nil, policyErr
+	}
 	channel, found, err := selectRandomChannelFromSnapshot(snapshot, group, model, retry, excluded, policy, now)
 	if found || err != nil {
 		return channel, err
@@ -265,6 +281,18 @@ func GetRandomSatisfiedChannelExcludingWithPolicy(group string, model string, re
 	normalizedModel := ratio_setting.FormatMatchingModelName(model)
 	if normalizedModel == "" || normalizedModel == model {
 		return nil, nil
+	}
+	poolChannels = poolChannels[:0]
+	for _, bucket := range snapshot.groupModels[group][normalizedModel] {
+		for _, entry := range bucket.entries {
+			if channelSelectionEntrySelectable(entry, excluded, nil, true, now) {
+				poolChannels = append(poolChannels, entry.channel)
+			}
+		}
+	}
+	policy, policyErr = prepareAccountRoutingPolicy(poolChannels, excluded, basePolicy)
+	if policyErr != nil {
+		return nil, policyErr
 	}
 	channel, _, err = selectRandomChannelFromSnapshot(snapshot, group, normalizedModel, retry, excluded, policy, now)
 	return channel, err
@@ -404,6 +432,11 @@ func CacheGetChannel(id int) (*Channel, error) {
 	c, ok := loadChannelRuntimeSnapshot().channels[id]
 	if !ok {
 		return nil, fmt.Errorf("渠道# %d，已不存在", id)
+	}
+	if c.credentialReference != "" || ChannelUsesAccountIdentity(c) {
+		// Rotating grants and configuration belong to the shared database; a
+		// replica must not dispatch a cached, already-consumed credential.
+		return GetChannelById(id, true)
 	}
 	return c, nil
 }

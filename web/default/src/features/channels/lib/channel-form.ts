@@ -250,10 +250,22 @@ export const channelFormSchema = z
     anti_poison_shape_check_enabled: z.boolean().optional(),
     requires_codex_identity: z.enum(['auto', 'true', 'false']).optional(),
     client_identity_mode: z
-      .enum(['inherit', 'legacy', 'disabled', 'per_channel', 'shadow'])
+      .enum([
+        'inherit',
+        'legacy',
+        'disabled',
+        'per_channel',
+        'per_account',
+        'shadow',
+      ])
       .optional(),
     client_profile: z.enum(['inherit', 'codex', 'claude']).optional(),
     client_version: z.string().optional(),
+    upstream_account_id: z.string().optional(),
+    upstream_account_subject: z.string().optional(),
+    client_platform: z.string().optional(),
+    client_terminal: z.string().optional(),
+    upstream_context_tokens: z.number().int().min(0).max(16000000).optional(),
     conversation_recovery: z.enum(['off', 'shadow', 'managed']).optional(),
     upstream_coordination: z.boolean().optional(),
     stream_commit_mode: z.enum(['realtime', 'atomic_turn']).optional(),
@@ -451,6 +463,11 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   client_identity_mode: 'inherit',
   client_profile: 'inherit',
   client_version: '',
+  upstream_account_id: '',
+  upstream_account_subject: '',
+  client_platform: '',
+  client_terminal: '',
+  upstream_context_tokens: 0,
   conversation_recovery: 'off',
   upstream_coordination: false,
   stream_commit_mode: 'realtime',
@@ -534,6 +551,11 @@ export function transformChannelToFormDefaults(
     | 'egress_policy'
     | 'client_profile'
     | 'client_version'
+    | 'upstream_account_id'
+    | 'upstream_account_subject'
+    | 'client_platform'
+    | 'client_terminal'
+    | 'upstream_context_tokens'
     | 'conversation_recovery'
     | 'upstream_coordination'
     | 'stream_commit_mode'
@@ -586,6 +608,11 @@ export function transformChannelToFormDefaults(
     client_identity_mode: 'inherit',
     client_profile: 'inherit',
     client_version: '',
+    upstream_account_id: '',
+    upstream_account_subject: '',
+    client_platform: '',
+    client_terminal: '',
+    upstream_context_tokens: 0,
     conversation_recovery: 'off',
     upstream_coordination: false,
     stream_commit_mode: 'realtime',
@@ -689,6 +716,11 @@ export function transformChannelToFormDefaults(
         client_identity_mode: parsed.client_identity_mode || 'inherit',
         client_profile: parsed.client_profile || 'inherit',
         client_version: parsed.client_version || '',
+        upstream_account_id: parsed.upstream_account_id || '',
+        upstream_account_subject: parsed.upstream_account_subject || '',
+        client_platform: parsed.client_platform || '',
+        client_terminal: parsed.client_terminal || '',
+        upstream_context_tokens: parsed.upstream_context_tokens || 0,
         conversation_recovery: parsed.conversation_recovery || 'off',
         upstream_coordination: parsed.upstream_coordination || false,
         stream_commit_mode: parsed.stream_commit_mode || 'realtime',
@@ -882,6 +914,11 @@ function buildSettingJSON(formData: ChannelFormValues): string {
   settingObj.client_identity_mode = formData.client_identity_mode || 'inherit'
   settingObj.client_profile = formData.client_profile || 'inherit'
   settingObj.client_version = formData.client_version || ''
+  settingObj.upstream_account_id = formData.upstream_account_id || ''
+  settingObj.upstream_account_subject = formData.upstream_account_subject || ''
+  settingObj.client_platform = formData.client_platform || ''
+  settingObj.client_terminal = formData.client_terminal || ''
+  settingObj.upstream_context_tokens = formData.upstream_context_tokens || 0
   settingObj.conversation_recovery = formData.conversation_recovery || 'off'
   settingObj.upstream_coordination = formData.upstream_coordination || false
   settingObj.stream_commit_mode = formData.stream_commit_mode || 'realtime'
