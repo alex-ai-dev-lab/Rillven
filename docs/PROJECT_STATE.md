@@ -2,7 +2,7 @@
 
 更新日期：2026-11-16。源码状态以 Git 提交和工作树改动为准，生产镜像与验收范围以对应部署归档为准。
 
-## 共享订阅账号池（源码发布和部署进行中）
+## 共享订阅账号池（源码镜像已部署，真实账号池灰度待验收）
 
 在 main 基线 `98a4992` 上加入 per_account canonical 身份、逐 grant 加密 vault、
 持久 UUIDv7/官方 model-facing ID 生成、默认 Codex 额度调度、严格历史/引用、幂等结果重取、
@@ -10,13 +10,17 @@
 实际 HTTP/原生 WS 本地 A/B × U/V、四版本数据库兼容和完整源码检查见
 [验收记录](account-pool-validation-20261116.md)。配置与兼容边界见 [账号池说明](ACCOUNT_POOL.md)、ADR-025。
 
-用户已授权提交、Actions 构建到 Releases 和服务器蓝绿切换；进度见
-[部署任务](../tasks/active/2026-11-account-pool-release-deploy.md)。保持现有生产渠道配置。
+源码 `2817712a52ed13a09fd34622d51ee1bc8bc9ebc7` 已通过完整 Actions，发布双架构
+[源码 Release](https://github.com/alex-ai-dev-lab/Rillven/releases/tag/rillven-build-2817712a52ed-43892087235)，
+服务器已切到 `rillven:sha-2817712a52ed` / 3030，现有生产渠道配置和永久 keyring 保留。
+隔离/生产迁移、工具终态、结算、83.55 秒跨切换流及单 SQLite writer 验证通过；
+旧进程退出超时被 Docker 终止，监测中的 DNS/超时异常如实保留，追加 60 次复验通过。
+结果与证据见[部署归档](../tasks/archive/2026-11-account-pool-release-deploy.md)。
 真实账号/额度、两独立服务进程、官方 TLS/H2 对照和账号池灰度未验收，
 完整功能任务继续留在 [active task](../tasks/active/2026-11-shared-account-pool.md)。
 2026-11-15 的生产 SQLite 锁 holder 仍未知，本地锁重试/错误保留验证不等于生产根因已查明。
 
-## v1.6.0 正式发布（已上线）
+## v1.6.0 正式发布（历史正式部署）
 
 正式 [Rillven v1.6.0](https://github.com/alex-ai-dev-lab/Rillven/releases/tag/rillven-v1.6.0)
 已发布并上线，Latest、非预发布、非草稿。产品源码 `565ff72b4a12d070a1440e24f745a2dee34156a4`，

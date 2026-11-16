@@ -32,7 +32,8 @@ repeatable-read current-read；PostgreSQL 额度条件避免无类型数字参�
 
 配置/操作契约见 `docs/ACCOUNT_POOL.md`；最终命令、失败修复与证据边界见
 `docs/account-pool-validation-20261116.md`。用户已追加授权提交、Actions 发布及服务器蓝绿切换，
-进度见 `2026-11-account-pool-release-deploy.md`；现有生产渠道配置保持原样。
+源码已提交并通过完整 Actions，Release 镜像已上线；结果见
+`../archive/2026-11-account-pool-release-deploy.md`，现有生产渠道配置保持原样。
 
 最终通过全仓 Go test/vet/build、相关 race、四版本外部数据库、前端格式/lint/typecheck/
 语义检查/240 测试/生产 build，以及改动 workflow 的 actionlint。失败及修复原因保留在验收记录。

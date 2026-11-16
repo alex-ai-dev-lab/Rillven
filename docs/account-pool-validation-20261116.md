@@ -2,7 +2,9 @@
 
 日期：2026-11-16。基线 main `98a499224a081ffb3d127c2ca7cb8e90ea5a71f4`，
 业务 v1.6.0 `565ff72b4a12d070a1440e24f745a2dee34156a4`。本记录覆盖本地源码验收；
-追加授权的提交、Actions 发布和服务器切换见 `tasks/active/2026-11-account-pool-release-deploy.md`。
+追加授权的提交、Actions 发布和服务器切换已完成，见
+[部署归档](../tasks/archive/2026-11-account-pool-release-deploy.md)。镜像源码为
+`2817712a52ed13a09fd34622d51ee1bc8bc9ebc7`，生产渠道未自动开启账号池模式。
 
 ## 本轮修复与证据范围
 
